@@ -1,20 +1,27 @@
 @startuml System_Context_Diagram
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
 
+LAYOUT_TOP_DOWN()
 LAYOUT_WITH_LEGEND()
+
 title System Context Diagram - Document Tracker with Multi-Level Review System for DOST-STII
 
-Person(docSource, "Document Source", "Submits and resubmits documents; tracks their status.")
-Person(l1Reviewer, "Level 1 Reviewer", "Immediate Supervisor. Performs first-level review.")
-Person(l2Reviewer, "Level 2 Reviewer", "Section Head. Performs second-level review.")
-Person(l3Reviewer, "Level 3 Reviewer", "Division Chief. Performs final review, approval, and views division-level analytics.")
-Person(superAdmin, "Super Admin", "Manages accounts, roles, configuration, and views system-wide analytics.")
+together {
+  Person(docSource, "Document Source", "Submits and resubmits documents; tracks their status.")
+  Person(l1Reviewer, "Level 1 Reviewer", "Immediate Supervisor. Performs first-level review.")
+  Person(l2Reviewer, "Level 2 Reviewer", "Section Head. Performs second-level review.")
+  Person(l3Reviewer, "Level 3 Reviewer", "Division Chief. Performs final review, approval, and views division-level analytics.")
+  Person(superAdmin, "Super Admin", "Manages accounts, roles, configuration, and views system-wide analytics.")
+}
+
 
 System(docTracker, "Document Tracker with Multi-Level Review System", "Enables document submission, three-level review, status tracking, notifications, and reporting for DOST-STII.")
 
-System_Ext(emailService, "Email Service", "Delivers in-system and email notifications on submission, return, and approval events.")
-System_Ext(aiAssistant, "AI Assistant", "Performs duplicate-submission detection during document intake.")
-System_Ext(googleWorkspace, "Google Workspace / Drive", "External source of documents submitted in Google Workspace file format or via Drive link.")
+together {
+  System_Ext(emailService, "Email Service", "Delivers in-system and email notifications on submission, return, and approval events.")
+  System_Ext(aiAssistant, "AI Assistant", "Performs duplicate-submission detection during document intake.")
+  System_Ext(googleWorkspace, "Google Workspace / Drive", "External source of documents submitted in Google Workspace file format or via Drive link.")
+}
 
 Rel(docSource, docTracker, "Submits and resubmits documents, views dashboard")
 Rel(l1Reviewer, docTracker, "Reviews, returns, or forwards documents")
@@ -25,10 +32,5 @@ Rel(superAdmin, docTracker, "Manages accounts, roles, and configuration; views a
 Rel(docTracker, emailService, "Sends notification emails via", "SMTP/API")
 Rel(docTracker, aiAssistant, "Requests duplicate check from", "API")
 Rel(docTracker, googleWorkspace, "Retrieves submitted document files from", "API")
-
-Rel(emailService, docSource, "Delivers email notifications to")
-Rel(emailService, l1Reviewer, "Delivers email notifications to")
-Rel(emailService, l2Reviewer, "Delivers email notifications to")
-Rel(emailService, l3Reviewer, "Delivers email notifications to")
 
 @enduml
