@@ -1,0 +1,54 @@
+@startuml Component_Diagram_4_Queue_AsyncJobs
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_TOP_DOWN()
+
+title Component Diagram 4 - Queue & Async Processing Layer
+
+' Entry Point & Source Services
+Container(web_app, "Web Application\n[Container]", "React", "User interface.")
+Component(notif_svc, "Notification Service\n[Component]", "Laravel Service", "Creates notifications and dispatches jobs.")
+Component(overdue_notif_svc, "Overdue Alert Service\n[Component]", "Laravel Service", "Triggers overdue alerts and dispatches jobs.")
+Component(ai_svc, "AI Integration Service\n[Component]", "Laravel Service", "Requests AI analysis and dispatches async jobs.")
+
+' Queue Dispatcher
+Component(queue_dispatcher, "Queue Job Dispatcher\n[Component]", "Laravel Queue", "Dispatches async background jobs to Queue Worker; manages job queue.")
+
+' Job Classes (Async Tasks)
+Component(email_job, "SendEmailNotification\nJob [Component]", "Job Class", "Sends email notifications for submission, return, approval, and overdue events.")
+Component(overdue_job, "OverdueDetectionJob\n[Component]", "Job Class", "Runs daily overdue monitoring; identifies documents exceeding TAT.")
+Component(ai_analysis_job, "AIAnalysisJob\n[Component]", "Job Class", "Performs async AI analysis for duplicate detection and feedback generation.")
+
+' Queue Worker (External Container)
+Container(queue_worker, "Queue Worker\n[Container]", "Laravel Queue", "Processes background jobs asynchronously; executes email sending, AI analysis, and monitoring.")
+
+' External Services
+System_Ext(email_sys, "Email Service\n[External System]", "Brevo SMTP", "Delivers in-system and email notifications via SMTP.")
+System_Ext(ai_sys, "AI Assistant\n[External System]", "Gemini API", "Performs duplicate detection and content analysis.")
+
+' Database
+ContainerDb(db, "Database\n[Database]", "MySQL", "Stores job history and queue data.")
+
+' ==================== RELATIONSHIPS ====================
+Rel_Down(web_app, notif_svc, "Triggers notifications", "Service")
+Rel_Down(web_app, overdue_notif_svc, "Triggers overdue alerts", "Service")
+Rel_Down(web_app, ai_svc, "Requests AI analysis", "Service")
+
+Rel_Down(notif_svc, queue_dispatcher, "Dispatches email jobs", "Queue")
+Rel_Down(overdue_notif_svc, queue_dispatcher, "Dispatches alert jobs", "Queue")
+Rel_Down(ai_svc, queue_dispatcher, "Dispatches AI jobs", "Queue")
+
+Rel_Down(queue_dispatcher, email_job, "Creates email job", "Queue")
+Rel_Down(queue_dispatcher, overdue_job, "Creates overdue job", "Queue")
+Rel_Down(queue_dispatcher, ai_analysis_job, "Creates AI job", "Queue")
+
+Rel_Down(queue_worker, email_job, "Executes", "Job")
+Rel_Down(queue_worker, overdue_job, "Executes", "Job")
+Rel_Down(queue_worker, ai_analysis_job, "Executes", "Job")
+
+Rel_Left(queue_worker, email_sys, "Sends emails via", "SMTP")
+Rel_Left(queue_worker, ai_sys, "Calls for analysis", "REST API")
+
+Rel_Right(queue_dispatcher, db, "Logs queue activity", "SQL")
+
+@enduml
