@@ -1,0 +1,59 @@
+@startuml Component_Diagram_1_Authentication
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_TOP_DOWN()
+
+title Component Diagram 1 - Authentication & Access Control Layer
+
+' Entry Point
+Container(web_app, "Web Application\n[Container]", "React", "User interface.")
+
+' Controllers Layer
+Component(auth_ctrl, "Auth Controller\n[Component]", "Laravel Controller", "Handles login, logout, password reset requests.")
+Component(user_ctrl, "User Profile Controller\n[Component]", "Laravel Controller", "Manages user account details and preferences.")
+Component(tag_mgmt_ctrl, "Tag Manager Controller\n[Component]", "Laravel Controller", "Handles reviewer tag assignments to documents.")
+
+' Middleware Layer
+Component(auth_middleware, "Authentication Middleware\n[Component]", "Laravel Middleware", "Verifies JWT tokens; validates user sessions; rejects unauthenticated requests.")
+Component(rbac_middleware, "RBAC Middleware\n[Component]", "Laravel Middleware", "Validates role-based permissions before routing to controllers.")
+
+' Access Control Services
+Component(auth_svc, "Auth & RBAC Service\n[Component]", "Laravel Service", "Validates authentication credentials; enforces role-based access control.")
+Component(tag_manager, "Tag Manager Service\n[Component]", "Laravel Service", "Manages reviewer tags for specific documents; stores tag-reviewer-document mappings.")
+Component(access_validator, "Access Validator (ABAC)\n[Component]", "Laravel Service", "Validates ABAC: checks if user is tagged for this specific document.")
+Component(self_review_blocker, "Self-Review Restriction\n[Component]", "Laravel Service", "Prevents document authors from reviewing their own submissions at any level.")
+
+' Data Access Layer
+Component(user_repo, "User Repository\n[Component]", "Eloquent Model", "Queries user details, roles, profiles, and submission rights.")
+Component(tag_repo, "Tag Repository\n[Component]", "Eloquent Model", "Queries tag-reviewer-document mappings for access control validation.")
+
+' Database
+ContainerDb(db, "Database\n[Database]", "MySQL", "Stores users, roles, and tag mappings.")
+
+' External System
+System_Ext(intranet, "DOST-STII Intranet/VPN\n[External System]", "Network", "Secure network access infrastructure.")
+
+' ==================== RELATIONSHIPS ====================
+Rel_Down(web_app, intranet, "Accessed through", "HTTPS")
+Rel_Down(web_app, auth_ctrl, "Sends auth requests", "JSON/HTTPS")
+Rel_Down(web_app, user_ctrl, "Requests user updates", "JSON/HTTPS")
+Rel_Down(web_app, tag_mgmt_ctrl, "Sends tag assignments", "JSON/HTTPS")
+
+Rel_Down(auth_ctrl, auth_middleware, "Protected by", "Middleware")
+Rel_Down(user_ctrl, auth_middleware, "Protected by", "Middleware")
+Rel_Down(tag_mgmt_ctrl, rbac_middleware, "Validated by", "Middleware")
+
+Rel_Down(auth_middleware, auth_svc, "Delegates to", "Service")
+Rel_Down(rbac_middleware, auth_svc, "Delegates to", "Service")
+Rel_Down(tag_mgmt_ctrl, tag_manager, "Delegates to", "Service")
+
+Rel_Down(auth_svc, user_repo, "Queries users", "SQL")
+Rel_Down(tag_manager, tag_repo, "Stores/retrieves tags", "SQL")
+Rel_Down(access_validator, tag_repo, "Queries tags", "SQL")
+Rel_Down(access_validator, user_repo, "Checks user", "SQL")
+Rel_Down(self_review_blocker, user_repo, "Checks author", "SQL")
+
+Rel_Right(user_repo, db, "")
+Rel_Right(tag_repo, db, "")
+
+@enduml
