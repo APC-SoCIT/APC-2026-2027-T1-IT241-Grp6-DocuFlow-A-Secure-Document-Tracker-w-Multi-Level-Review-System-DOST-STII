@@ -1,0 +1,72 @@
+@startuml Component_Diagram_3_Monitoring_TAT_Integration
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_TOP_DOWN()
+
+title Component Diagram 3 - Monitoring, Turnaround Time & Integration Layer
+
+' Entry Point
+Container(web_app, "Web Application\n[Container]", "React", "User interface.")
+
+' Controllers Layer
+Component(analytics_ctrl, "Analytics Controller\n[Component]", "Laravel Controller", "Provides division-level and system-wide analytics; queries TAT metrics and reviewer performance.")
+Component(notif_ctrl, "Notification Controller\n[Component]", "Laravel Controller", "Manages user notification feed retrieval and read state updates.")
+
+' Scheduling Layer
+Component(scheduler, "Task Scheduler\n[Component]", "Laravel Scheduler/Cron", "Runs daily scheduled jobs: TAT monitoring, overdue detection, analytics generation.")
+
+' Time & Calculation Services
+Component(tat_calc, "TAT Calculator Service\n[Component]", "Laravel Service", "Calculates turnaround time in working days; excludes Philippine national holidays.")
+Component(holiday_manager, "Holiday Calendar Manager\n[Component]", "Laravel Service", "Manages Philippine national holidays and DOST-STII specific holidays for TAT calculation.")
+
+' Monitoring & Alert Services
+Component(overdue_detector, "Overdue Detection Service\n[Component]", "Laravel Service", "Monitors TAT for all documents; identifies overdue items; generates non-escalating overdue status.")
+Component(overdue_notif_svc, "Overdue Alert Service\n[Component]", "Laravel Service", "Triggers non-escalating overdue alerts to both active reviewer and document source.")
+Component(notif_svc, "Notification Service\n[Component]", "Laravel Service", "Creates and formats all notifications (in-system and email); triggers alert dispatch.")
+
+' External Integration Services
+Component(ai_svc, "AI Integration Service\n[Component]", "Laravel Service", "Queries Gemini API for duplicate detection; retrieves preliminary feedback suggestions.")
+Component(ai_kb, "AI Knowledge Base\n[Component]", "Data Store / Cache", "Stores reviewer remarks by document type and review level; enables AI pattern learning.")
+Component(drive_webhook_handler, "Google Drive Webhook Handler\n[Component]", "Laravel Webhook Handler", "Receives and processes webhook events from Google Drive; updates document metadata in real-time.")
+
+' Data Access Layer
+Component(tat_repo, "TAT Data Repository\n[Component]", "Eloquent Model", "Queries submission dates and current action dates for TAT calculation.")
+Component(doc_repo, "Document Repository\n[Component]", "Eloquent Model", "Queries documents for TAT and overdue monitoring.")
+
+' Database
+ContainerDb(db, "Database\n[Database]", "MySQL", "Stores documents, TAT data, holiday calendar, and audit logs.")
+
+' External Systems
+System_Ext(ai_sys, "AI Assistant\n[External System]", "Gemini API", "Provides duplicate detection and feedback.")
+System_Ext(drive_sys, "Google Workspace\n[External System]", "Drive API + Webhooks", "Document updates via webhooks.")
+System_Ext(email_sys, "Email Service\n[External System]", "Brevo SMTP", "Sends email notifications.")
+
+' ==================== RELATIONSHIPS ====================
+Rel_Down(web_app, analytics_ctrl, "Fetch analytics", "JSON/HTTPS")
+Rel_Down(web_app, notif_ctrl, "Fetch notifications", "JSON/HTTPS")
+
+Rel_Down(scheduler, overdue_detector, "Triggers daily TAT monitoring", "Cron")
+
+Rel_Down(overdue_detector, tat_calc, "Uses for calculation", "Service")
+Rel_Down(tat_calc, holiday_manager, "Queries holidays", "Service")
+Rel_Down(tat_calc, tat_repo, "Queries TAT data", "SQL")
+Rel_Down(overdue_detector, overdue_notif_svc, "Triggers alerts", "Service")
+Rel_Down(overdue_detector, doc_repo, "Queries documents", "SQL")
+
+Rel_Down(overdue_notif_svc, notif_svc, "Sends via", "Service")
+Rel_Down(notif_svc, notif_ctrl, "Updates", "Service")
+
+Rel_Down(analytics_ctrl, tat_calc, "Queries TAT", "Service")
+
+Rel_Down(ai_svc, ai_kb, "Learns from and stores patterns", "Data")
+Rel_Left(ai_svc, ai_sys, "Calls for analysis", "REST API")
+
+Rel_Down(drive_webhook_handler, db, "Updates metadata", "SQL")
+Rel_Left(drive_webhook_handler, drive_sys, "Receives webhooks", "Webhook")
+
+Rel_Down(notif_svc, email_sys, "Sends emails via", "SMTP")
+
+Rel_Right(tat_repo, db, "")
+Rel_Right(doc_repo, db, "")
+
+@enduml
