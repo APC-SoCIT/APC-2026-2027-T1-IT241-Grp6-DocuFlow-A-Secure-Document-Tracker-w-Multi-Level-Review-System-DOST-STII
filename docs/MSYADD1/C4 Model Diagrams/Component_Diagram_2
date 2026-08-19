@@ -1,0 +1,68 @@
+@startuml Component_Diagram_2_Document_Workflow
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_TOP_DOWN()
+
+title Component Diagram 2 - Document Submission & Workflow Layer
+
+' Entry Point
+Container(web_app, "Web Application\n[Container]", "React", "User interface.")
+
+' Controllers Layer
+Component(doc_ctrl, "Document Controller\n[Component]", "Laravel Controller", "Handles document submissions and resubmissions.")
+Component(review_ctrl, "Review Controller\n[Component]", "Laravel Controller", "Handles multi-level review actions (L1, L2, L3 actions and endorsements).")
+
+' Validation Layer
+Component(submission_validator, "Submission Rights Validator\n[Component]", "Laravel Service", "Enforces submission rights: only Doc Source, L1, L2 can submit; L3 and Super Admin blocked.")
+Component(doc_validator, "Document Validator\n[Component]", "Laravel Validator", "Validates file types (blocks executables); enforces 100MB size limit; validates Google Drive links.")
+
+' Document Management Services
+Component(ref_generator, "Reference Number Generator\n[Component]", "Laravel Utility", "Generates unique document reference numbers in format (DocType-YYYY-NNNNN).")
+Component(doc_svc, "Document Workflow Service\n[Component]", "Laravel Service", "Executes multi-level approval workflows; manages status changes; enforces sequential review.")
+Component(tag_router, "Tag-Based Document Router\n[Component]", "Laravel Service", "Routes documents only to users explicitly tagged as reviewers for that document.")
+
+' History & Tracking Services
+Component(revision_mgr, "Revision History Manager\n[Component]", "Laravel Service", "Tracks resubmissions linked to original reference number; maintains complete revision chain.")
+Component(audit_svc, "Audit Trail Service\n[Component]", "Laravel Service", "Enforces immutable logging of all actions with server-generated timestamps.")
+
+' Data Access Layer
+Component(doc_repo, "Document Repository\n[Component]", "Eloquent Model", "Handles CRUD operations for document metadata and tracking data.")
+Component(revision_repo, "Revision Repository\n[Component]", "Eloquent Model", "Stores and retrieves revision history linked to original reference numbers.")
+Component(audit_repo, "Audit Log Repository\n[Component]", "Eloquent Model", "Appends immutable audit trail records; queries activity history.")
+Component(tag_repo, "Tag Repository\n[Component]", "Eloquent Model", "Queries tag-reviewer-document mappings for routing validation.")
+
+' Database
+ContainerDb(db, "Database\n[Database]", "MySQL", "Stores documents, revisions, audit logs, and tag mappings.")
+
+' External System
+System_Ext(drive_sys, "Google Workspace\n[External System]", "Drive API", "Document storage and linking.")
+
+' ==================== RELATIONSHIPS ====================
+Rel_Down(web_app, doc_ctrl, "Submit/Resubmit", "JSON/HTTPS")
+Rel_Down(web_app, review_ctrl, "Review actions", "JSON/HTTPS")
+
+Rel_Down(doc_ctrl, submission_validator, "Validates submission rights", "Service")
+Rel_Down(doc_ctrl, doc_validator, "Validates document", "Service")
+Rel_Down(doc_ctrl, ref_generator, "Requests reference number", "Service")
+Rel_Down(doc_ctrl, doc_svc, "Submits to workflow", "Service")
+
+Rel_Down(review_ctrl, doc_svc, "Executes review actions", "Service")
+
+Rel_Down(doc_svc, tag_router, "Routes to tagged reviewers", "Service")
+Rel_Down(tag_router, tag_repo, "Queries tags", "SQL")
+Rel_Down(doc_svc, revision_mgr, "Delegates resubmission tracking", "Service")
+Rel_Down(doc_svc, audit_svc, "Logs all actions", "Service")
+Rel_Down(doc_svc, doc_repo, "Updates document", "SQL")
+
+Rel_Down(ref_generator, doc_repo, "Stores reference", "SQL")
+Rel_Down(revision_mgr, revision_repo, "Stores revisions", "SQL")
+Rel_Down(audit_svc, audit_repo, "Writes audit logs", "SQL")
+
+Rel_Right(doc_repo, db, "")
+Rel_Right(revision_repo, db, "")
+Rel_Right(audit_repo, db, "")
+Rel_Right(tag_repo, db, "")
+
+Rel_Left(doc_svc, drive_sys, "Integrates with", "API")
+
+@enduml
