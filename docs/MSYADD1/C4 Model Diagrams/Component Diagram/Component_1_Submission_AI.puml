@@ -1,0 +1,54 @@
+@startuml Component_1_Submission_AI
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_TOP_DOWN()
+title Component Diagram 1 - Document Submission & AI Integration
+
+Container(web_app, "Web Application\n[Container]", "TBD", "User interface.")
+
+Component(doc_ctrl, "Document Controller\n[Component]", "Laravel Controller", "Handles new submissions and resubmissions.")
+Component(rights_validator, "Submission Rights Validator\n[Component]", "Laravel Service", "Blocks L3 Reviewer and Super Admin from submitting.")
+Component(file_validator, "File/Link Validator\n[Component]", "Laravel Validator", "Validates Google Workspace link or file (.pdf/.docx/.xlsx); blocks executables.")
+Component(self_review_check, "Self-Review Validator\n[Component]", "Laravel Service", "Blocks submission if submitter is tagged as reviewer on same document.")
+Component(ref_generator, "Reference Number Generator\n[Component]", "Laravel Utility", "Generates (DOCTYPE-YYYY-NNNNN) for new submissions.")
+Component(revision_mgr, "Revision Manager\n[Component]", "Laravel Service", "Keeps same reference number and creates new revision entry on resubmission.")
+Component(tag_assign_svc, "Reviewer Tag Assignment\n[Component]", "Laravel Service", "Saves the directly-tagged Level 1 Reviewer chosen by the submitter.")
+Component(eligibility_check, "Reviewer Eligibility Filter\n[Component]", "Laravel Service", "Lists only users with L1 role marked eligible by Super Admin.")
+
+Component(dup_detect_svc, "Duplicate Detection Service\n[Component]", "Laravel Service", "Sends content/metadata to AI Assistant; returns match warning if found.")
+Component(ai_feedback_svc, "AI Feedback Service\n[Component]", "Laravel Service", "Sends content, doc type, and remark patterns to AI Assistant; stores preliminary feedback.")
+
+Component(doc_repo, "Document Repository\n[Component]", "Eloquent Model", "CRUD for document metadata and status.")
+Component(tag_repo, "Tag Repository\n[Component]", "Eloquent Model", "Stores reviewer tag per document.")
+Component(user_repo, "User Repository\n[Component]", "Eloquent Model", "User roles and reviewer eligibility flags.")
+Component(audit_svc, "Audit Trail Service\n[Component]", "Laravel Service", "Logs submission/resubmission with server timestamp.")
+
+ContainerDb(db, "DocuFlow Database\n[Database]", "MySQL", "Documents, tags, users, audit logs.")
+System_Ext(gemini, "Gemini API\n[External System]", "AI Assistant", "Duplicate detection and preliminary feedback.")
+
+Rel_Down(web_app, doc_ctrl, "Submit/Resubmit", "JSON/HTTPS")
+Rel_Down(doc_ctrl, rights_validator, "Checks role")
+Rel_Down(doc_ctrl, file_validator, "Validates file/link")
+Rel_Down(doc_ctrl, self_review_check, "Checks conflict of interest")
+Rel_Down(doc_ctrl, ref_generator, "New submission: requests ref#")
+Rel_Down(doc_ctrl, revision_mgr, "Resubmission: creates revision")
+Rel_Down(doc_ctrl, tag_assign_svc, "Saves L1 Reviewer tag")
+Rel_Down(tag_assign_svc, eligibility_check, "Gets eligible L1 list")
+Rel_Down(eligibility_check, user_repo, "Queries eligible users", "SQL")
+Rel_Down(doc_ctrl, dup_detect_svc, "Runs duplicate check")
+Rel_Down(doc_ctrl, ai_feedback_svc, "Runs AI feedback")
+Rel_Down(doc_ctrl, audit_svc, "Logs action")
+
+Rel_Down(tag_assign_svc, tag_repo, "Stores tag", "SQL")
+Rel_Down(ref_generator, doc_repo, "Stores reference", "SQL")
+Rel_Down(revision_mgr, doc_repo, "Updates revision", "SQL")
+Rel_Down(dup_detect_svc, gemini, "Requests check", "REST API")
+Rel_Down(ai_feedback_svc, gemini, "Requests feedback", "REST API")
+Rel_Down(dup_detect_svc, doc_repo, "Stores result", "SQL")
+Rel_Down(ai_feedback_svc, doc_repo, "Stores feedback", "SQL")
+
+Rel_Right(doc_repo, db, "")
+Rel_Right(tag_repo, db, "")
+Rel_Right(user_repo, db, "")
+
+@enduml

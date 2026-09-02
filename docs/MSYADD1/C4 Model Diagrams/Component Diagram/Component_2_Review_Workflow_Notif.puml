@@ -1,0 +1,70 @@
+@startuml Component_2_Review_Workflow_Notification
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_TOP_DOWN()
+title Component Diagram 2 - Review Workflow, Notifications & Drive Integration
+
+Container(web_app, "Web Application\n[Container]", "TBD", "User interface.")
+
+Component(review_ctrl, "Review Controller\n[Component]", "Laravel Controller", "Handles review, return, forward/endorse, and approve actions.")
+Component(access_validator, "Tagged-Reviewer Access Validator\n[Component]", "Laravel Service", "Blocks access if user is not directly tagged for the document.")
+Component(workflow_svc, "Document Workflow Service\n[Component]", "Laravel Service", "Executes status transitions: Pending L1/L2/L3, Returned, Approved.")
+Component(l2_tag_svc, "L2 Reviewer Tag Assignment\n[Component]", "Laravel Service", "L1 Reviewer selects and tags an eligible L2 Reviewer when forwarding.")
+Component(l3_auto_route, "L3 Auto-Router\n[Component]", "Laravel Service", "Automatically routes to the single fixed Division Chief on endorsement (no tagging needed).")
+Component(eligibility_check, "Reviewer Eligibility Filter\n[Component]", "Laravel Service", "Lists only users with L2 role marked eligible by Super Admin.")
+
+Component(webhook_handler, "Google Drive Webhook Handler\n[Component]", "Laravel Webhook Handler", "Receives Drive edit events directly on Backend Application (assumption - no separate listener service). Logs 'Live Document Edited' event.")
+
+Component(notif_svc, "Notification Service\n[Component]", "Laravel Service", "Creates in-system notification with ref#, action, timestamp; sends email synchronously.")
+Component(notif_ctrl, "Notification Controller\n[Component]", "Laravel Controller", "Retrieves notification list; marks as read.")
+Component(email_failure_logger, "Email Delivery Failure Logger\n[Component]", "Laravel Service", "Records failed email delivery for manual resend by Super Admin (retry queue is a future enhancement).")
+
+Component(audit_svc, "Audit Trail Service\n[Component]", "Laravel Service", "Records review, return, forward/endorse, approve, and edit events with server timestamps.")
+
+Component(doc_repo, "Document Repository\n[Component]", "Eloquent Model", "Reads/updates document status.")
+Component(tag_repo, "Tag Repository\n[Component]", "Eloquent Model", "Confirms/stores tagged reviewer per level.")
+Component(user_repo, "User Repository\n[Component]", "Eloquent Model", "Reviewer roles, eligibility, and the single fixed L3 user record.")
+Component(notif_repo, "Notification Repository\n[Component]", "Eloquent Model", "Stores in-system notifications and read state.")
+Component(audit_repo, "Audit Log Repository\n[Component]", "Eloquent Model", "Appends immutable log entries, including email delivery failures.")
+
+ContainerDb(db, "DocuFlow Database\n[Database]", "MySQL", "Documents, tags, users, notifications, audit logs.")
+System_Ext(drive, "Google Workspace / Drive\n[External System]", "Drive API + Webhooks", "Live document link and edit events.")
+System_Ext(email_sys, "Email Service\n[External System]", "SMTP", "Delivers email notifications (synchronous call).")
+
+Rel_Down(web_app, review_ctrl, "Review/Return/Forward/Approve", "JSON/HTTPS")
+Rel_Down(review_ctrl, access_validator, "Checks tag")
+Rel_Down(access_validator, tag_repo, "Verifies tag", "SQL")
+Rel_Down(review_ctrl, workflow_svc, "Executes action")
+
+Rel_Down(workflow_svc, l2_tag_svc, "Forward: tags L2")
+Rel_Down(l2_tag_svc, eligibility_check, "Gets eligible L2 list")
+Rel_Down(eligibility_check, user_repo, "Queries eligible users", "SQL")
+Rel_Down(l2_tag_svc, tag_repo, "Stores L2 tag", "SQL")
+
+Rel_Down(workflow_svc, l3_auto_route, "Endorse: auto-routes")
+Rel_Down(l3_auto_route, user_repo, "Gets fixed Division Chief", "SQL")
+
+Rel_Down(workflow_svc, doc_repo, "Updates status", "SQL")
+Rel_Down(workflow_svc, audit_svc, "Logs action")
+Rel_Down(workflow_svc, notif_svc, "Triggers notification")
+
+Rel_Down(webhook_handler, audit_svc, "Logs live edit event")
+Rel_Left(webhook_handler, drive, "Receives webhook", "Webhook")
+
+Rel_Down(notif_svc, notif_repo, "Saves in-system notification", "SQL")
+Rel_Left(notif_svc, email_sys, "Sends email (synchronous)", "SMTP")
+Rel_Down(notif_svc, email_failure_logger, "On failure")
+Rel_Down(email_failure_logger, audit_repo, "Logs failure for manual resend", "SQL")
+
+Rel_Down(web_app, notif_ctrl, "Fetch/mark read", "JSON/HTTPS")
+Rel_Down(notif_ctrl, notif_repo, "Reads/updates", "SQL")
+
+Rel_Down(audit_svc, audit_repo, "Writes logs", "SQL")
+
+Rel_Right(doc_repo, db, "")
+Rel_Right(tag_repo, db, "")
+Rel_Right(user_repo, db, "")
+Rel_Right(notif_repo, db, "")
+Rel_Right(audit_repo, db, "")
+
+@enduml
