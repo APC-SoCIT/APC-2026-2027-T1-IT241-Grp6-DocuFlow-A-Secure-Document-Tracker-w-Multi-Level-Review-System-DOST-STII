@@ -1,0 +1,53 @@
+@startuml System_Context_Diagram
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_TOP_DOWN()
+
+title System Context Diagram - DocuFlow: A Secure Document Tracker with Multi-Level Review System for DOST-STII
+
+
+Person(docSource, "Document Source", "DOST-STII staff member who creates submissions, tracks status, and resubmits returned documents.")
+
+Person(l1Reviewer, "Immediate Supervisor (L1)", "Performs first-level review (return or forward) and submits documents.")
+
+Person(l2Reviewer, "Section Head (L2)", "Performs second-level review (return or endorse) and submits documents.")
+
+Person(l3Reviewer, "Division Chief (L3)", "Performs final review and approves or returns documents.")
+
+Person(superAdmin, "Super Admin", "Manages user accounts, reviewer eligibility, holiday calendar, AI knowledge, and views audit trail.")
+
+
+System(docuflow, "DocuFlow", "A Secure Document Tracker with Multi-Level Review System for DOST-STII")
+
+
+System_Ext(aiAssistant, "AI Assistant", "Locally hosted language model (Ollama) that provides preliminary review feedback and detects duplicate submissions.")
+
+System_Ext(emailSystem, "Email", "Sends in-system and email notifications for submission, review, resubmission, and overdue events.")
+
+
+Lay_R(docSource, l1Reviewer)
+Lay_R(l1Reviewer, l2Reviewer)
+Lay_R(l2Reviewer, l3Reviewer)
+Lay_R(l3Reviewer, superAdmin)
+
+Lay_D(l2Reviewer, docuflow)
+Lay_D(docuflow, aiAssistant)
+Lay_D(docuflow, emailSystem)
+
+
+Rel(docSource, docuflow, "Manage Documents\nSubmit/Resubmit Document\n[Receives in-system/email notifications]")
+
+Rel(l1Reviewer, docuflow, "Manage Documents\nSubmit/Resubmit Document\nReview Document\n[Receives in-system/email notifications]")
+
+Rel(l2Reviewer, docuflow, "Manage Documents\nSubmit/Resubmit Document\nReview Document\n[Receives in-system/email notifications]")
+
+Rel(l3Reviewer, docuflow, "Manage Documents\nReview Document\nApprove Document\n[Receives in-system/email notifications]")
+
+Rel(superAdmin, docuflow, "Manage Documents\nManage System Administration\nView Audit Trail")
+
+Rel(docuflow, aiAssistant, "Detect Duplicate Submission\nProvide AI Feedback & Suggestions")
+
+Rel(docuflow, emailSystem, "Send Notification")
+
+@enduml
