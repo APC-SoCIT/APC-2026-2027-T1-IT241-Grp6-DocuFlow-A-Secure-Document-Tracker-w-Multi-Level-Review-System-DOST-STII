@@ -15,11 +15,28 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Test accounts, all with password "password". Keyed by email so
+        // re-running the seeder (e.g. on every Railway deploy) is safe.
+        $accounts = [
+            ['name' => 'Maria Santos', 'email' => 'source@docuflow.test', 'role' => User::ROLE_DOCUMENT_SOURCE],
+            ['name' => 'Jose Reyes', 'email' => 'l1.reyes@docuflow.test', 'role' => User::ROLE_L1],
+            ['name' => 'Ana Cruz', 'email' => 'l1.cruz@docuflow.test', 'role' => User::ROLE_L1],
+            ['name' => 'Carlo Mendoza', 'email' => 'l2@docuflow.test', 'role' => User::ROLE_L2],
+            ['name' => 'Liza Ramos', 'email' => 'l3@docuflow.test', 'role' => User::ROLE_L3],
+        ];
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        foreach ($accounts as $account) {
+            $user = User::updateOrCreate(
+                ['email' => $account['email']],
+                [
+                    'name' => $account['name'],
+                    'role' => $account['role'],
+                    'password' => 'password',
+                ],
+            );
+
+            // Not mass-assignable, and the dashboard route requires it.
+            $user->forceFill(['email_verified_at' => now()])->save();
+        }
     }
 }

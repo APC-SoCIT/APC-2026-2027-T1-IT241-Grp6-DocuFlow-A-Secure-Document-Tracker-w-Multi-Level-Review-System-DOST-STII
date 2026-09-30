@@ -1,176 +1,161 @@
-import ApplicationLogo from '@/Components/ApplicationLogo';
-import Dropdown from '@/Components/Dropdown';
-import NavLink from '@/Components/NavLink';
-import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
+import { cn } from '@/lib/utils';
 import { Link, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+
+// Stored once for the whole app, so the rail keeps its state across pages.
+const SIDEBAR_STORAGE_KEY = 'docuflow.sidebar.expanded';
+
+const ROLE_LABELS = {
+    document_source: 'Document Source',
+    l1: 'Immediate Supervisor (L1)',
+    l2: 'Section Head (L2)',
+    l3: 'Division Chief (L3)',
+};
+
+function navItemsFor(role) {
+    const roleItems =
+        role === 'document_source'
+            ? [
+                  { label: 'My documents', icon: 'folder_open', route: 'documents.index' },
+                  { label: 'Submit document', icon: 'upload_file', route: 'documents.create' },
+              ]
+            : [{ label: 'Review queue', icon: 'fact_check', route: 'reviews.index' }];
+
+    return [
+        ...roleItems,
+        { label: 'Notifications', icon: 'notifications', route: 'notifications.index' },
+    ];
+}
+
+function readSidebarExpanded() {
+    try {
+        return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === '1';
+    } catch {
+        return false;
+    }
+}
+
+function Icon({ name, className }) {
+    return (
+        <span
+            aria-hidden="true"
+            className={cn('material-symbols-outlined shrink-0 leading-none', className)}
+        >
+            {name}
+        </span>
+    );
+}
+
+const navItemClass =
+    'flex h-10 w-full items-center gap-3 rounded-md px-[10px] text-sm font-medium transition-colors';
 
 export default function AuthenticatedLayout({ header, children }) {
     const user = usePage().props.auth.user;
+    const [expanded, setExpanded] = useState(readSidebarExpanded);
 
-    const [showingNavigationDropdown, setShowingNavigationDropdown] =
-        useState(false);
+    useEffect(() => {
+        try {
+            window.localStorage.setItem(SIDEBAR_STORAGE_KEY, expanded ? '1' : '0');
+        } catch {
+            // Storage unavailable (e.g. private mode); state just won't persist.
+        }
+    }, [expanded]);
 
     return (
-        <div className="min-h-screen bg-gray-100">
-            <nav className="border-b border-gray-100 bg-white">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="flex h-16 justify-between">
-                        <div className="flex">
-                            <div className="flex shrink-0 items-center">
-                                <Link href="/">
-                                    <ApplicationLogo className="block h-9 w-auto fill-current text-gray-800" />
-                                </Link>
-                            </div>
-
-                            <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                <NavLink
-                                    href={route('dashboard')}
-                                    active={route().current('dashboard')}
-                                >
-                                    Dashboard
-                                </NavLink>
-                            </div>
-                        </div>
-
-                        <div className="hidden sm:ms-6 sm:flex sm:items-center">
-                            <div className="relative ms-3">
-                                <Dropdown>
-                                    <Dropdown.Trigger>
-                                        <span className="inline-flex rounded-md">
-                                            <button
-                                                type="button"
-                                                className="inline-flex items-center rounded-md border border-transparent bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-500 transition duration-150 ease-in-out hover:text-gray-700 focus:outline-none"
-                                            >
-                                                {user.name}
-
-                                                <svg
-                                                    className="-me-0.5 ms-2 h-4 w-4"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 20 20"
-                                                    fill="currentColor"
-                                                >
-                                                    <path
-                                                        fillRule="evenodd"
-                                                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                                        clipRule="evenodd"
-                                                    />
-                                                </svg>
-                                            </button>
-                                        </span>
-                                    </Dropdown.Trigger>
-
-                                    <Dropdown.Content>
-                                        <Dropdown.Link
-                                            href={route('profile.edit')}
-                                        >
-                                            Profile
-                                        </Dropdown.Link>
-                                        <Dropdown.Link
-                                            href={route('logout')}
-                                            method="post"
-                                            as="button"
-                                        >
-                                            Log Out
-                                        </Dropdown.Link>
-                                    </Dropdown.Content>
-                                </Dropdown>
-                            </div>
-                        </div>
-
-                        <div className="-me-2 flex items-center sm:hidden">
-                            <button
-                                onClick={() =>
-                                    setShowingNavigationDropdown(
-                                        (previousState) => !previousState,
-                                    )
-                                }
-                                className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 transition duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-500 focus:bg-gray-100 focus:text-gray-500 focus:outline-none"
-                            >
-                                <svg
-                                    className="h-6 w-6"
-                                    stroke="currentColor"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        className={
-                                            !showingNavigationDropdown
-                                                ? 'inline-flex'
-                                                : 'hidden'
-                                        }
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M4 6h16M4 12h16M4 18h16"
-                                    />
-                                    <path
-                                        className={
-                                            showingNavigationDropdown
-                                                ? 'inline-flex'
-                                                : 'hidden'
-                                        }
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M6 18L18 6M6 6l12 12"
-                                    />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
+        <div className="flex min-h-screen bg-paper text-ink">
+            <aside
+                className={cn(
+                    'sticky top-0 flex h-screen shrink-0 flex-col bg-paper-dim px-2 py-4 transition-[width] duration-200',
+                    expanded ? 'w-60' : 'w-[60px]',
+                )}
+            >
+                <div className="mb-6 flex h-10 items-center gap-3 overflow-hidden px-[10px]">
+                    <Icon name="description" className="text-dost-blue" />
+                    {expanded && (
+                        <span className="whitespace-nowrap text-base font-bold">
+                            DocuFlow
+                        </span>
+                    )}
                 </div>
 
-                <div
-                    className={
-                        (showingNavigationDropdown ? 'block' : 'hidden') +
-                        ' sm:hidden'
-                    }
-                >
-                    <div className="space-y-1 pb-3 pt-2">
-                        <ResponsiveNavLink
-                            href={route('dashboard')}
-                            active={route().current('dashboard')}
-                        >
-                            Dashboard
-                        </ResponsiveNavLink>
-                    </div>
+                <nav className="flex flex-col gap-1">
+                    {navItemsFor(user.role).map((item) => {
+                        const active = route().current(item.route);
 
-                    <div className="border-t border-gray-200 pb-1 pt-4">
-                        <div className="px-4">
-                            <div className="text-base font-medium text-gray-800">
-                                {user.name}
-                            </div>
-                            <div className="text-sm font-medium text-gray-500">
-                                {user.email}
-                            </div>
-                        </div>
-
-                        <div className="mt-3 space-y-1">
-                            <ResponsiveNavLink href={route('profile.edit')}>
-                                Profile
-                            </ResponsiveNavLink>
-                            <ResponsiveNavLink
-                                method="post"
-                                href={route('logout')}
-                                as="button"
+                        return (
+                            <Link
+                                key={item.route}
+                                href={route(item.route)}
+                                title={expanded ? undefined : item.label}
+                                aria-current={active ? 'page' : undefined}
+                                className={cn(
+                                    navItemClass,
+                                    'overflow-hidden',
+                                    active
+                                        ? 'bg-dost-blue text-white hover:bg-dost-blue-deep'
+                                        : 'text-ink-muted hover:bg-paper hover:text-ink',
+                                )}
                             >
-                                Log Out
-                            </ResponsiveNavLink>
-                        </div>
+                                <Icon name={item.icon} />
+                                {expanded && (
+                                    <span className="whitespace-nowrap">{item.label}</span>
+                                )}
+                            </Link>
+                        );
+                    })}
+                </nav>
+
+                <div className="mt-auto flex flex-col gap-1">
+                    <div
+                        className="flex min-h-10 items-center gap-3 overflow-hidden px-[10px] py-1"
+                        title={expanded ? undefined : `${user.name} · ${ROLE_LABELS[user.role]}`}
+                    >
+                        <Icon name="account_circle" className="text-ink-muted" />
+                        {expanded && (
+                            <div className="min-w-0">
+                                <div className="truncate text-sm font-medium">{user.name}</div>
+                                <div className="truncate text-xs text-ink-muted">
+                                    {ROLE_LABELS[user.role]}
+                                </div>
+                            </div>
+                        )}
                     </div>
+
+                    <Link
+                        href={route('logout')}
+                        method="post"
+                        as="button"
+                        title={expanded ? undefined : 'Log out'}
+                        className={cn(
+                            navItemClass,
+                            'overflow-hidden text-ink-muted hover:bg-paper hover:text-ink',
+                        )}
+                    >
+                        <Icon name="logout" />
+                        {expanded && <span className="whitespace-nowrap">Log out</span>}
+                    </Link>
+
+                    <button
+                        type="button"
+                        onClick={() => setExpanded((value) => !value)}
+                        aria-expanded={expanded}
+                        aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+                        title={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+                        className={cn(
+                            navItemClass,
+                            'text-ink-muted hover:bg-paper hover:text-ink',
+                        )}
+                    >
+                        <Icon name={expanded ? 'chevron_left' : 'chevron_right'} />
+                    </button>
                 </div>
-            </nav>
+            </aside>
 
-            {header && (
-                <header className="bg-white shadow">
-                    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-                        {header}
-                    </div>
-                </header>
-            )}
+            <div className="min-w-0 flex-1">
+                {header && <header className="px-8 pt-8">{header}</header>}
 
-            <main>{children}</main>
+                <main>{children}</main>
+            </div>
         </div>
     );
 }

@@ -1,3 +1,51 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    :root {
+        /* DocuFlow palette (CLAUDE.md), as RGB channels */
+        --paper: 250 249 246; /* #FAF9F6 */
+        --paper-dim: 241 239 233; /* #F1EFE9 */
+        --ink: 28 27 25; /* #1C1B19 */
+        --ink-muted: 120 118 110; /* #78766E */
+        --border: 236 233 225; /* #ECE9E1 */
+        --dost-blue: 0 137 184; /* #0089B8 */
+        --dost-blue-deep: 4 90 115; /* #045A73 */
+        --stamp-green: 47 109 79; /* #2F6D4F */
+        --stamp-green-bg: 225 238 230; /* #E1EEE6 */
+        --stamp-amber: 122 76 10; /* #7A4C0A */
+        --stamp-amber-bg: 245 231 211; /* #F5E7D3 */
+        --stamp-rust: 122 46 34; /* #7A2E22 */
+        --stamp-rust-bg: 243 223 218; /* #F3DFDA */
+        --white: 255 255 255;
+
+        /* shadcn/ui semantic tokens */
+        --background: var(--paper);
+        --foreground: var(--ink);
+        --card: var(--white);
+        --card-foreground: var(--ink);
+        --popover: var(--white);
+        --popover-foreground: var(--ink);
+        --primary: var(--dost-blue);
+        --primary-foreground: var(--white);
+        --secondary: var(--paper-dim);
+        --secondary-foreground: var(--ink);
+        --muted: var(--paper-dim);
+        --muted-foreground: var(--ink-muted);
+        --accent: var(--paper-dim);
+        --accent-foreground: var(--ink);
+        --destructive: var(--stamp-rust);
+        --destructive-foreground: var(--white);
+        --input: var(--border);
+        --ring: var(--dost-blue);
+    }
+
+    * {
+        @apply border-border;
+    }
+
+    body {
+        @apply bg-background text-foreground;
+    }
+}
