@@ -36,6 +36,34 @@ class Document extends Model
         'Other',
     ];
 
+    // The DOCTYPE part of DOCTYPE-YYYY-NNNNN.
+    public const TYPE_CODES = [
+        'Report' => 'REPORT',
+        'Policy Draft' => 'POLICY',
+        'Financial Record' => 'FINANCIAL',
+        'Project Proposal' => 'PROPOSAL',
+        'Memo' => 'MEMO',
+        'Other' => 'OTHER',
+    ];
+
+    /**
+     * Next reference number for a type, counting up per type per year.
+     * Call inside a transaction so the lock holds until the insert.
+     */
+    public static function nextReferenceNumber(string $documentType): string
+    {
+        $prefix = self::TYPE_CODES[$documentType].'-'.now()->year.'-';
+
+        $last = self::where('reference_number', 'like', $prefix.'%')
+            ->lockForUpdate()
+            ->orderByDesc('reference_number')
+            ->value('reference_number');
+
+        $next = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;
+
+        return $prefix.str_pad((string) $next, 5, '0', STR_PAD_LEFT);
+    }
+
     /**
      * Get the attributes that should be cast.
      *

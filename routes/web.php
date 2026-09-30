@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ProfileController;
 use App\Models\User;
 use Illuminate\Foundation\Application;
@@ -27,8 +28,10 @@ Route::get('/dashboard', function (Request $request) {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/documents', fn () => Inertia::render('Placeholder', ['title' => 'My documents']))
         ->name('documents.index');
-    Route::get('/documents/create', fn () => Inertia::render('Placeholder', ['title' => 'Submit document']))
+    Route::get('/documents/create', [DocumentController::class, 'create'])
         ->name('documents.create');
+    Route::post('/documents', [DocumentController::class, 'store'])
+        ->name('documents.store');
     Route::get('/review-queue', fn () => Inertia::render('Placeholder', ['title' => 'Review queue']))
         ->name('reviews.index');
     Route::get('/notifications', fn () => Inertia::render('Placeholder', ['title' => 'Notifications']))

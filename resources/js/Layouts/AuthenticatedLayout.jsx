@@ -50,7 +50,8 @@ const navItemClass =
     'flex h-10 w-full items-center gap-3 rounded-md px-[10px] text-sm font-medium transition-colors';
 
 export default function AuthenticatedLayout({ header, children }) {
-    const user = usePage().props.auth.user;
+    const { auth, flash } = usePage().props;
+    const user = auth.user;
     const [expanded, setExpanded] = useState(readSidebarExpanded);
 
     useEffect(() => {
@@ -153,6 +154,16 @@ export default function AuthenticatedLayout({ header, children }) {
 
             <div className="min-w-0 flex-1">
                 {header && <header className="px-8 pt-8">{header}</header>}
+
+                {flash.success && (
+                    <div
+                        role="status"
+                        className="mx-8 mt-6 flex items-center gap-3 rounded-lg bg-stamp-green-bg px-4 py-3 text-sm font-medium text-stamp-green"
+                    >
+                        <Icon name="check_circle" />
+                        {flash.success}
+                    </div>
+                )}
 
                 <main>{children}</main>
             </div>
