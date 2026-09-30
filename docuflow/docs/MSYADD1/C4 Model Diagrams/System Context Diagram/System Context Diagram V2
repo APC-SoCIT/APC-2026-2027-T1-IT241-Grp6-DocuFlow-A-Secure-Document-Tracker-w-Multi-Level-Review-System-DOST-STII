@@ -1,0 +1,64 @@
+@startuml System_Context_Diagram
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_TOP_DOWN()
+
+title System Context Diagram - DocuFlow: Secure Document Tracker with Multi-Level Review System for DOST-STII
+
+
+Person(docSource, "Document Source", "DOST-STII staff member who submits and resubmits documents and monitors document status.")
+
+Person(l1Reviewer, "Level 1 Reviewer", "Immediate Supervisor who performs the first-level review and may forward or return documents.")
+
+Person(l2Reviewer, "Level 2 Reviewer", "Section Head who performs the second-level review and may endorse or return documents.")
+
+Person(l3Reviewer, "Level 3 Reviewer", "Division Chief who performs the final review and approves or returns documents.")
+
+Person(superAdmin, "Super Admin", "Manages user accounts, roles, reviewer eligibility, holiday calendar, audit trail, and system-wide information.")
+
+
+System(docuflow, "DocuFlow", "Secure web-based document tracking and multi-level review system that manages document submission, sequential review, status tracking, revision history, notifications, audit trails, analytics, turnaround time, and AI-assisted preliminary review.")
+
+
+System_Ext(emailService, "Email Service", "Delivers automated email notifications for document workflow events and overdue documents.")
+
+System_Ext(gemini, "Gemini API", "Provides preliminary document feedback and possible duplicate-submission detection. Final review decisions remain with human reviewers.")
+
+System_Ext(googleWorkspace, "Google Workspace / Google Drive", "Stores and hosts live documents and provides document links and edit events through Google Drive integration.")
+
+
+Lay_R(docSource, l1Reviewer)
+Lay_R(l1Reviewer, l2Reviewer)
+Lay_R(l2Reviewer, l3Reviewer)
+Lay_R(l3Reviewer, superAdmin)
+
+Lay_D(l2Reviewer, docuflow)
+
+Lay_D(docuflow, gemini)
+
+Lay_L(gemini, emailService)
+Lay_R(gemini, googleWorkspace)
+
+
+
+Rel_D(docSource, docuflow, "Submits/resubmits documents and monitors status")
+
+Rel_D(l1Reviewer, docuflow, "Reviews, returns, or forwards documents")
+
+Rel_D(l2Reviewer, docuflow, "Reviews, returns, or endorses documents")
+
+Rel_D(l3Reviewer, docuflow, "Reviews, returns, or approves documents")
+
+Rel_D(superAdmin, docuflow, "Administers users, settings, audit trail, and analytics")
+
+
+
+Rel_D(docuflow, emailService, "Sends automated notification emails")
+
+Rel_D(docuflow, gemini, "Requests preliminary feedback and duplicate checks", "HTTPS/API")
+
+Rel_D(docuflow, googleWorkspace, "Accesses live document links and receives edit events", "Google Drive API/Webhooks")
+
+
+@enduml

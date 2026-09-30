@@ -1,0 +1,48 @@
+@startuml Container_Diagram
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+ 
+LAYOUT_TOP_DOWN()
+ 
+title Container Diagram - Document Tracker with Multi-Level Review System for DOST-STII
+ 
+together {
+  Person(docSource, "Document Source", "Submits and resubmits documents; tracks their status.")
+  Person(l1Reviewer, "Level 1 Reviewer", "Immediate Supervisor. Performs first-level review.")
+  Person(l2Reviewer, "Level 2 Reviewer", "Section Head. Performs second-level review.")
+  Person(l3Reviewer, "Level 3 Reviewer", "Division Chief. Performs final review, approval, and views division-level analytics.")
+  Person(superAdmin, "Super Admin", "Manages accounts, roles, configuration, and views system-wide analytics.")
+}
+ 
+System_Boundary(docTracker, "Document Tracker with Multi-Level Review System") {
+  Container(webApp, "Web Application\n[Container]", "React", "Delivers the UI for submitting, reviewing, and monitoring documents in the browser.")
+  Container(apiApp, "API Application\n[Container]", "Laravel (PHP)", "Handles authentication, RBAC, document workflow logic, sends in-system notifications, and coordinates AI checks and file retrieval.")
+  Container(queueWorker, "Queue Worker\n[Container]", "Laravel Queue", "Processes background jobs asynchronously, primarily dispatching email notifications via SMTP.")
+  ContainerDb(database, "Database\n[Database]", "MySQL", "Stores documents, users, roles, review history, and immutable audit logs that cannot be edited or deleted by regular users.")
+}
+
+System_Ext(network, "DOST-STII Intranet/VPN\n[External System]", "Network infrastructure for secure access to the system from authorized users.")
+ 
+together {
+  System_Ext(emailService, "Email Service\n[External System]", "Brevo (SMTP relay) delivers in-system and email notifications on submission, return, and approval events.")
+  System_Ext(aiAssistant, "AI Assistant\n[External System]", "Google Gemini API performs duplicate-submission detection and provides preliminary content feedback during document intake.")
+  System_Ext(googleWorkspace, "Google Workspace / Drive\n[External System]", "External source of documents submitted in Google Workspace file format or via Drive link.")
+}
+ 
+Rel(docSource, webApp, "Uses", "HTTPS")
+Rel(l1Reviewer, webApp, "Uses", "HTTPS")
+Rel(l2Reviewer, webApp, "Uses", "HTTPS")
+Rel(l3Reviewer, webApp, "Uses", "HTTPS")
+Rel(superAdmin, webApp, "Uses", "HTTPS")
+ 
+Rel(webApp, network, "Accessed through", "HTTPS")
+Rel(webApp, apiApp, "Makes API calls to", "JSON/HTTPS")
+ 
+Rel(apiApp, database, "Reads from and writes to", "SQL")
+Rel(apiApp, queueWorker, "Dispatches asynchronous jobs to", "Queue")
+Rel(apiApp, aiAssistant, "Requests duplicate check and content feedback from", "API")
+Rel(apiApp, googleWorkspace, "Retrieves submitted document files from", "API")
+ 
+Rel(queueWorker, database, "Reads from", "SQL")
+Rel(queueWorker, emailService, "Sends queued notification emails via", "SMTP")
+ 
+@enduml

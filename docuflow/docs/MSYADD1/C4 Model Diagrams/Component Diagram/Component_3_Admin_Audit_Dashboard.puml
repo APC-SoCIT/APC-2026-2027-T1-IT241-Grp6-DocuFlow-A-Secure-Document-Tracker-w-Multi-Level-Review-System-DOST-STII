@@ -1,0 +1,58 @@
+@startuml Component_3_Admin_Audit_Dashboard
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_TOP_DOWN()
+title Component Diagram 3 - Administration, Audit & Dashboard
+
+Container(web_app, "Web Application\n[Container]", "TBD", "User interface.")
+
+Component(admin_ctrl, "Admin Controller\n[Component]", "Laravel Controller", "User accounts, roles, reviewer eligibility, holiday calendar.")
+Component(user_mgmt_svc, "User Management Service\n[Component]", "Laravel Service", "Create/edit/disable accounts; assign roles.")
+Component(eligibility_svc, "Reviewer Eligibility Service\n[Component]", "Laravel Service", "Marks which L1/L2-role users are eligible to be tagged as reviewers.")
+Component(holiday_svc, "Holiday Calendar Service\n[Component]", "Laravel Service", "Manages holiday dates used for TAT calculations.")
+
+Component(audit_ctrl, "Audit Trail Controller\n[Component]", "Laravel Controller", "Search/filter/export immutable audit records (read-only).")
+Component(audit_query_svc, "Audit Query Service\n[Component]", "Laravel Service", "Filters by document, reference number, user, action, date.")
+
+Component(dashboard_ctrl, "Dashboard & Analytics Controller\n[Component]", "Laravel Controller", "Role-based dashboard data and filters.")
+Component(analytics_svc, "Analytics Service\n[Component]", "Laravel Service", "Computes role-scoped statistics for the dashboard.")
+Component(tat_calc, "TAT Calculator\n[Component]", "Laravel Service", "Calculates turnaround time in working days (excluding holidays) at read-time when dashboard loads; not a background job.")
+Component(report_gen, "Report Generator\n[Component]", "Laravel Service", "Generates PDF/CSV within user's permitted scope.")
+
+Component(user_repo, "User Repository\n[Component]", "Eloquent Model", "User accounts, roles, reviewer eligibility.")
+Component(holiday_repo, "Holiday Repository\n[Component]", "Eloquent Model", "Holiday calendar dates.")
+Component(audit_repo, "Audit Log Repository\n[Component]", "Eloquent Model", "Immutable audit records (read-only, append-only).")
+Component(doc_repo, "Document Repository\n[Component]", "Eloquent Model", "Document data and timestamps for TAT and analytics.")
+
+ContainerDb(db, "DocuFlow Database\n[Database]", "MySQL", "Users, holidays, audit logs, documents.")
+
+Rel_Down(web_app, admin_ctrl, "Manage users/roles/holidays", "JSON/HTTPS")
+Rel_Down(admin_ctrl, user_mgmt_svc, "Delegates")
+Rel_Down(admin_ctrl, eligibility_svc, "Delegates")
+Rel_Down(admin_ctrl, holiday_svc, "Delegates")
+Rel_Down(user_mgmt_svc, user_repo, "Updates", "SQL")
+Rel_Down(eligibility_svc, user_repo, "Updates eligibility flag", "SQL")
+Rel_Down(holiday_svc, holiday_repo, "Updates", "SQL")
+Rel_Down(user_mgmt_svc, audit_repo, "Logs admin change", "SQL")
+Rel_Down(eligibility_svc, audit_repo, "Logs admin change", "SQL")
+Rel_Down(holiday_svc, audit_repo, "Logs admin change", "SQL")
+
+Rel_Down(web_app, audit_ctrl, "View/export audit trail", "JSON/HTTPS")
+Rel_Down(audit_ctrl, audit_query_svc, "Delegates search")
+Rel_Down(audit_query_svc, audit_repo, "Reads (read-only)", "SQL")
+
+Rel_Down(web_app, dashboard_ctrl, "Fetch dashboard/reports", "JSON/HTTPS")
+Rel_Down(dashboard_ctrl, analytics_svc, "Delegates")
+Rel_Down(dashboard_ctrl, report_gen, "Requests report")
+Rel_Down(analytics_svc, tat_calc, "Requests TAT per document")
+Rel_Down(tat_calc, holiday_repo, "Reads holidays", "SQL")
+Rel_Down(tat_calc, doc_repo, "Reads submission/action dates", "SQL")
+Rel_Down(analytics_svc, doc_repo, "Queries scoped data", "SQL")
+Rel_Down(report_gen, doc_repo, "Reads scoped data", "SQL")
+
+Rel_Right(user_repo, db, "")
+Rel_Right(holiday_repo, db, "")
+Rel_Right(audit_repo, db, "")
+Rel_Right(doc_repo, db, "")
+
+@enduml

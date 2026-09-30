@@ -1,0 +1,64 @@
+@startuml Component_Diagram_Core_Workflow
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_TOP_DOWN()
+
+title Component Diagram 3.1 - DocuFlow Backend (Core Document Workflow)
+
+Container(frontend, "Web Application", "React", "Sends user requests and renders workspaces, forms, reviews, and in-system notifications.")
+System_Ext(googleWorkspace, "Google Workspace", "Hosts live files and sends edit webhook notifications via Workspace APIs.")
+
+Container_Boundary(backendBoundary, "DocuFlow Backend Application (Laravel / Apache)") {
+
+    Component(authMiddleware, "Auth & Access Middleware", "Laravel Middleware", "Enforces session auth, RBAC global roles, ABAC document assignment, and the self-review restriction.")
+
+    Component(webhookController, "Workspace Webhook Controller", "Laravel Controller", "Listens for Google Workspace API push notifications to log live document edit events during review.")
+    Component(docController, "Document Controller", "Laravel Controller", "Handles UC-01 (Manage Documents): Serves permitted records, statuses, search, revision history, and role-based dashboard summaries.")
+    Component(submissionController, "Submission Controller", "Laravel Controller", "Handles UC-02 (Submit/Resubmit Document): Processes file/link validation, triggers duplicate checks, and AI feedback requests.")
+    Component(reviewController, "Review Controller", "Laravel Controller", "Handles UC-03 (Review Document): Processes L1/L2/L3 reviews, returns, forwards, endorsements, and approvals.")
+
+    Component(workflowService, "Workflow & Routing Service", "Laravel Service", "Enforces 3-level sequential routing, resubmission reset to L1, and generates reference numbers (DOCTYPE-YYYY-NNNNN).")
+    Component(tatRatingService, "TAT & Rating Service", "Laravel Service", "Stops the reviewer's TAT when a review completes, calculates turnaround time in working days, excludes Philippine holidays, and assigns reviewer ratings.")
+    Component(aiClient, "Local AI Client Service", "Laravel HTTP Client", "Communicates with local Ollama API for duplicate submission detection and preliminary feedback.")
+
+    Component(auditService, "Audit Logging Service", "Laravel Service", "Writes immutable, server-timestamped activity records for document, review, administrative, and integration events.")
+    Component(notificationService, "Notification Service", "Laravel Service", "Creates in-system notification records and prepares workflow, review, and overdue reminder emails for delivery.")
+}
+
+ContainerDb(database, "DocuFlow Database", "MySQL", "Stores document records, assignments, revisions, remarks, audit logs, and in-system notifications.")
+System_Ext(aiAssistant, "AI Assistant", "Local Ollama instance providing preliminary review feedback and duplicate detection.")
+System_Ext(emailService, "Email", "SMTP mail server delivering automated workflow alerts.")
+
+
+Rel_D(frontend, authMiddleware, "Sends API requests", "HTTPS / JSON")
+Rel_D(googleWorkspace, webhookController, "Pushes live document edit events", "HTTPS Webhook")
+
+
+Rel_D(authMiddleware, docController, "Routes requests", "Internal")
+Rel_D(authMiddleware, submissionController, "Routes requests", "Internal")
+Rel_D(authMiddleware, reviewController, "Routes requests", "Internal")
+
+Rel_D(submissionController, workflowService, "Initiates submission logic", "Internal")
+Rel_D(submissionController, aiClient, "Requests AI checks", "Internal")
+Rel_D(submissionController, auditService, "Logs submission events", "Internal")
+Rel_D(submissionController, notificationService, "Triggers submission notifications", "Internal")
+
+Rel_D(reviewController, workflowService, "Updates review routing", "Internal")
+Rel_D(reviewController, tatRatingService, "Stops TAT and calculates rating", "Internal")
+Rel_D(reviewController, auditService, "Logs review remarks & actions", "Internal")
+Rel_D(reviewController, notificationService, "Triggers review notifications", "Internal")
+
+Rel_D(webhookController, auditService, "Logs live edit timestamps", "Internal")
+
+
+Rel_D(docController, database, "Reads permitted records, statuses, and dashboard data", "Eloquent ORM")
+Rel_D(workflowService, database, "Writes document records & revision entries", "Eloquent ORM")
+Rel_D(tatRatingService, database, "Reads holidays and saves TAT metrics", "Eloquent ORM")
+Rel_D(auditService, database, "Writes append-only audit records", "Eloquent ORM")
+Rel_D(notificationService, database, "Writes in-system alerts", "Eloquent ORM")
+
+Rel_D(aiClient, aiAssistant, "Sends text for duplicate check & feedback", "HTTP / Localhost")
+Rel_D(notificationService, emailService, "Sends email alerts", "SMTP")
+
+@enduml

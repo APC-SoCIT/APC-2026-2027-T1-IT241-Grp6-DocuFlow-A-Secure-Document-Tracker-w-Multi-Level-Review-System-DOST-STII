@@ -1,0 +1,80 @@
+@startuml Container_Diagram
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_TOP_DOWN()
+
+title Container Diagram - DocuFlow: Secure Document Tracker with Multi-Level Review System for DOST-STII
+
+
+Person(docSource, "Document Source", "Submits and resubmits documents and monitors their status.")
+
+Person(l1Reviewer, "Level 1 Reviewer", "Immediate Supervisor who performs first-level review.")
+
+Person(l2Reviewer, "Level 2 Reviewer", "Section Head who performs second-level review.")
+
+Person(l3Reviewer, "Level 3 Reviewer", "Division Chief who performs final review and approval.")
+
+Person(superAdmin, "Super Admin", "Manages users, roles, reviewer eligibility, holiday calendar, audit trail, and analytics.")
+
+
+System_Boundary(docuflowBoundary, "DocuFlow") {
+
+    Container(frontend, "Web Application", "React / Vue / Vanilla JS - TBD", "Provides role-based dashboards, document submission forms, review interfaces, notifications, analytics, audit views, and administration screens.")
+
+    Container(backend, "Backend Application", "Laravel / PHP", "Handles authentication and access rules, document workflow routing, reviewer tagging, submissions and resubmissions, reference numbers, review actions, notifications, audit logging, turnaround-time monitoring, reporting, Google Drive integration, and Gemini integration.")
+
+    ContainerDb(database, "DocuFlow Database", "MySQL", "Stores user accounts, roles, document records, reviewer assignments, tags, revision history, remarks, activity logs, AI results, notifications, holiday calendar data, and other system records.")
+}
+
+
+System_Ext(googleWorkspace, "Google Workspace / Google Drive", "Hosts live Google Workspace documents and provides document access and edit events through Google Drive integration.")
+
+System_Ext(gemini, "Gemini API / Google AI Studio", "Provides preliminary document feedback and possible duplicate-submission detection.")
+
+System_Ext(emailService, "Email Service", "Delivers automated workflow and overdue notification emails.")
+
+
+
+Lay_R(docSource, l1Reviewer)
+Lay_R(l1Reviewer, l2Reviewer)
+Lay_R(l2Reviewer, l3Reviewer)
+Lay_R(l3Reviewer, superAdmin)
+
+Lay_D(l2Reviewer, frontend)
+
+Lay_D(frontend, backend)
+Lay_R(backend, database)
+
+Lay_D(backend, gemini)
+Lay_L(gemini, googleWorkspace)
+Lay_R(gemini, emailService)
+
+
+
+Rel_D(docSource, frontend, "Submits/resubmits documents, monitors status, views notifications", "Web Browser / HTTPS")
+
+Rel_D(l1Reviewer, frontend, "Reviews assigned documents, records feedback, returns or forwards documents", "Web Browser / HTTPS")
+
+Rel_D(l2Reviewer, frontend, "Reviews assigned documents, records feedback, returns or endorses documents", "Web Browser / HTTPS")
+
+Rel_D(l3Reviewer, frontend, "Reviews assigned documents, returns or approves documents", "Web Browser / HTTPS")
+
+Rel_D(superAdmin, frontend, "Manages system administration, audit trail, and analytics", "Web Browser / HTTPS")
+
+
+
+Rel_D(frontend, backend, "Sends user requests and receives system data", "HTTPS")
+
+Rel_R(backend, database, "Reads and writes system records", "MySQL")
+
+
+
+Rel_D(backend, googleWorkspace, "Accesses live document information and receives document edit events", "Google Drive API / Webhooks")
+
+Rel_D(backend, gemini, "Sends document content and metadata; receives preliminary feedback and duplicate-check results", "HTTPS / Gemini API")
+
+Rel_D(backend, emailService, "Sends workflow and overdue notification emails")
+
+
+@enduml
