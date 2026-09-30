@@ -34,6 +34,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('documents.store');
     Route::get('/documents/{document}', [DocumentController::class, 'show'])
         ->name('documents.show');
+    Route::get('/documents/{document}/resubmit', [DocumentController::class, 'editResubmission'])
+        ->name('documents.resubmit.edit');
+    Route::post('/documents/{document}/resubmit', [DocumentController::class, 'resubmit'])
+        ->name('documents.resubmit');
     Route::get('/review-queue', fn () => Inertia::render('Placeholder', ['title' => 'Review queue']))
         ->name('reviews.index');
     Route::get('/notifications', fn () => Inertia::render('Placeholder', ['title' => 'Notifications']))

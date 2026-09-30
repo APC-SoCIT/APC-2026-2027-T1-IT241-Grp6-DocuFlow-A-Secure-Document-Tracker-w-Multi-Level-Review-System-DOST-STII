@@ -1,7 +1,8 @@
 import StatusBadge from '@/Components/StatusBadge';
+import { buttonVariants } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 
 function formatDateTime(value) {
     return new Date(value).toLocaleString('en-PH', {
@@ -19,7 +20,7 @@ function Detail({ label, children }) {
     );
 }
 
-export default function Show({ document }) {
+export default function Show({ document, lastReturn, canResubmit }) {
     return (
         <AuthenticatedLayout
             header={
@@ -51,12 +52,41 @@ export default function Show({ document }) {
                                 <Detail label="Document type">{document.document_type}</Detail>
                                 <Detail label="Submitted by">{document.submitted_by}</Detail>
                                 <Detail label="Submitted">{formatDateTime(document.submitted_at)}</Detail>
+                                <Detail label="Revision">{document.revision_number}</Detail>
                                 <Detail label="Status">
                                     <StatusBadge status={document.status} />
                                 </Detail>
                             </dl>
                         </CardContent>
                     </Card>
+
+                    {lastReturn && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Returned by {lastReturn.reviewer}</CardTitle>
+                                <p className="mt-1 text-sm text-ink-muted">
+                                    Level {lastReturn.review_level} ·{' '}
+                                    {formatDateTime(lastReturn.returned_at)}
+                                </p>
+                            </CardHeader>
+                            <CardContent className="pt-3">
+                                <p className="whitespace-pre-line text-sm text-ink">
+                                    {lastReturn.remarks || 'No remarks were given.'}
+                                </p>
+
+                                {canResubmit && (
+                                    <div className="mt-6 flex justify-end">
+                                        <Link
+                                            href={route('documents.resubmit.edit', document.id)}
+                                            className={buttonVariants({ variant: 'filled' })}
+                                        >
+                                            Resubmit
+                                        </Link>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             </div>
         </AuthenticatedLayout>
