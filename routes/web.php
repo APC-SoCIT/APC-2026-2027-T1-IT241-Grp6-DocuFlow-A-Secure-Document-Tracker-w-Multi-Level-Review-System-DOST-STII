@@ -32,6 +32,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('documents.create');
     Route::post('/documents', [DocumentController::class, 'store'])
         ->name('documents.store');
+    Route::get('/documents/{document}', [DocumentController::class, 'show'])
+        ->name('documents.show');
     Route::get('/review-queue', fn () => Inertia::render('Placeholder', ['title' => 'Review queue']))
         ->name('reviews.index');
     Route::get('/notifications', fn () => Inertia::render('Placeholder', ['title' => 'Notifications']))

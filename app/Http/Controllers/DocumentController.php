@@ -111,9 +111,34 @@ class DocumentController extends Controller
             return $document;
         });
 
-        return redirect()->route('documents.index')->with(
+        return redirect()->route('documents.show', $document)->with(
             'success',
             "Document {$document->reference_number} submitted. Status: Pending L1 review.",
         );
+    }
+
+    /**
+     * Document detail view. Task 6.1 turns this into the full review screen.
+     */
+    public function show(Request $request, Document $document): Response
+    {
+        $user = $request->user();
+        abort_unless(
+            $document->submitted_by === $user->id
+                || $document->assigned_reviewer_id === $user->id
+                || $document->reviews()->where('reviewer_id', $user->id)->exists(),
+            403,
+        );
+
+        return Inertia::render('Documents/Show', [
+            'document' => [
+                'id' => $document->id,
+                'reference_number' => $document->reference_number,
+                'document_type' => $document->document_type,
+                'submitted_by' => $document->submitter->name,
+                'submitted_at' => $document->created_at,
+                'status' => $document->status,
+            ],
+        ]);
     }
 }

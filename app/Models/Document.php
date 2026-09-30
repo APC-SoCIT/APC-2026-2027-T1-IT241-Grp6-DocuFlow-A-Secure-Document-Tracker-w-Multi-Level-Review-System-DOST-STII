@@ -17,7 +17,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'submitted_by',
     'assigned_reviewer_id',
     'assigned_at',
-    'ai_feedback_text',
 ])]
 class Document extends Model
 {
