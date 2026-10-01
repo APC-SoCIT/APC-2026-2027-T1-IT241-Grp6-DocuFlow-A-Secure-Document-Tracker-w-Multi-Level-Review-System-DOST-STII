@@ -110,6 +110,11 @@ class DemoSeeder extends Seeder
             '1. Completed the user survey for the library portal.',
             '2. Conducted two training sessions on research databases.',
         ]));
+
+        // Whoever has to act next (or hear the outcome) has an unread notification.
+        foreach (Document::all() as $document) {
+            $document->notifications()->latest('id')->first()?->update(['is_read' => false]);
+        }
     }
 
     private function daysAgo(int $days): Carbon
@@ -234,8 +239,7 @@ class DemoSeeder extends Seeder
             'user_id' => $user->id,
             'document_id' => $document->id,
             'message' => $message,
-            // Anything older than two days has been seen; recent ones are unread.
-            'is_read' => $at->lt(now()->subDays(2)),
+            'is_read' => true, // the latest one per document is reopened in run()
         ]), $at);
     }
 

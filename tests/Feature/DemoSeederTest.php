@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Document;
 use App\Models\Notification;
-use App\Models\User;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -60,9 +59,15 @@ class DemoSeederTest extends TestCase
             }
         }
 
-        // Each reviewer with work waiting has an unread notification for it.
-        $reyes = User::where('email', 'l1.reyes@docuflow.test')->firstOrFail();
-        $this->assertTrue(Notification::where('user_id', $reyes->id)->where('is_read', false)->exists());
+        // Whoever has to act next on each document has an unread notification for it.
+        foreach (Document::all() as $document) {
+            $nextPerson = $document->assigned_reviewer_id ?? $document->submitted_by;
+            $this->assertTrue(
+                Notification::where('document_id', $document->id)->where('user_id', $nextPerson)->where('is_read', false)->exists(),
+                "{$document->reference_number} has an unread notification for whoever acts next",
+            );
+        }
+        $this->assertSame(7, Notification::where('is_read', false)->count());
 
         // Running it again starts clean instead of piling up.
         $this->seed(DemoSeeder::class);
