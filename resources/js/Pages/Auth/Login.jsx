@@ -1,12 +1,11 @@
 import FieldError from '@/Components/FieldError';
-import { Button, buttonVariants } from '@/Components/ui/button';
+import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import GuestLayout from '@/Layouts/GuestLayout';
-import { cn } from '@/lib/utils';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 
-export default function Login({ status, canResetPassword }) {
+export default function Login({ status }) {
     const { data, setData, post, processing, errors, reset } = useForm({
         email: '',
         password: '',
@@ -74,18 +73,7 @@ export default function Login({ status, canResetPassword }) {
                     <span className="text-sm text-ink-muted">Remember me</span>
                 </label>
 
-                <div className="flex items-center justify-between gap-4 pt-2">
-                    {canResetPassword ? (
-                        <Link
-                            href={route('password.request')}
-                            className={cn(buttonVariants({ variant: 'text' }), 'px-0')}
-                        >
-                            Forgot your password?
-                        </Link>
-                    ) : (
-                        <span />
-                    )}
-
+                <div className="flex justify-end pt-2">
                     <Button type="submit" disabled={processing}>
                         Log in
                     </Button>
