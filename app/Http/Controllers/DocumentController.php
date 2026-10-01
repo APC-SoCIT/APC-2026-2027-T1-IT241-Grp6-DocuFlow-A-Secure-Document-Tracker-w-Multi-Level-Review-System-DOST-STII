@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DocumentController extends Controller
 {
@@ -149,12 +150,7 @@ class DocumentController extends Controller
     public function show(Request $request, Document $document): Response
     {
         $user = $request->user();
-        abort_unless(
-            $document->submitted_by === $user->id
-                || $document->assigned_reviewer_id === $user->id
-                || $document->reviews()->where('reviewer_id', $user->id)->exists(),
-            403,
-        );
+        $this->authorizeView($user, $document);
 
         $lastReturn = $document->status === Document::STATUS_RETURNED
             ? $document->reviews()->with('reviewer:id,name')
@@ -181,7 +177,93 @@ class DocumentController extends Controller
             ] : null,
             'canResubmit' => $document->submitted_by === $user->id
                 && $document->status === Document::STATUS_RETURNED,
+            'preview' => $this->previewFor($document),
+            'review' => $this->reviewPanelFor($user, $document),
         ]);
+    }
+
+    /**
+     * Serve an uploaded file to someone allowed to view the document:
+     * PDFs inline (for the preview iframe), .docx/.xlsx as a download.
+     */
+    public function file(Request $request, Document $document): StreamedResponse
+    {
+        $this->authorizeView($request->user(), $document);
+        abort_if($document->file_path === null || ! Storage::exists($document->file_path), 404);
+
+        $extension = pathinfo($document->file_path, PATHINFO_EXTENSION);
+
+        return Storage::response(
+            $document->file_path,
+            "{$document->reference_number}.{$extension}",
+            [],
+            $extension === 'pdf' ? 'inline' : 'attachment',
+        );
+    }
+
+    private function authorizeView(User $user, Document $document): void
+    {
+        abort_unless(
+            $document->submitted_by === $user->id
+                || $document->assigned_reviewer_id === $user->id
+                || $document->reviews()->where('reviewer_id', $user->id)->exists(),
+            403,
+        );
+    }
+
+    /**
+     * What the left-hand preview panel should show.
+     *
+     * @return array<string, mixed>
+     */
+    private function previewFor(Document $document): array
+    {
+        if ($document->google_workspace_link !== null) {
+            return [
+                'kind' => 'google',
+                'embed_url' => $document->googlePreviewUrl(),
+                'open_url' => $document->google_workspace_link,
+            ];
+        }
+
+        $extension = pathinfo((string) $document->file_path, PATHINFO_EXTENSION);
+
+        return [
+            'kind' => $extension === 'pdf' ? 'pdf' : 'file',
+            'extension' => $extension,
+            'open_url' => route('documents.file', $document),
+        ];
+    }
+
+    /**
+     * Review actions for the assigned reviewer, or null when they can't act.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function reviewPanelFor(User $user, Document $document): ?array
+    {
+        $pendingStatus = [
+            1 => Document::STATUS_PENDING_L1,
+            2 => Document::STATUS_PENDING_L2,
+            3 => Document::STATUS_PENDING_L3,
+        ][$document->current_review_level] ?? null;
+
+        if ($document->assigned_reviewer_id !== $user->id
+            || $document->status !== $pendingStatus
+            || $document->submitted_by === $user->id) {
+            return null;
+        }
+
+        return [
+            'level' => $document->current_review_level,
+            // Every seeded L2, minus this reviewer and the submitter (Self-Review Restriction).
+            'l2Reviewers' => $document->current_review_level === 1
+                ? User::where('role', User::ROLE_L2)
+                    ->whereKeyNot([$user->id, $document->submitted_by])
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                : [],
+        ];
     }
 
     /**

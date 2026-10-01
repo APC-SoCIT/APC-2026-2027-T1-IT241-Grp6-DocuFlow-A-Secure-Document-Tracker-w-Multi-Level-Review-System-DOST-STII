@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReviewController;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -26,6 +27,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('documents.store');
     Route::get('/documents/{document}', [DocumentController::class, 'show'])
         ->name('documents.show');
+    Route::get('/documents/{document}/file', [DocumentController::class, 'file'])
+        ->name('documents.file');
+    Route::post('/documents/{document}/reviews', [ReviewController::class, 'store'])
+        ->name('reviews.store');
     Route::get('/documents/{document}/resubmit', [DocumentController::class, 'editResubmission'])
         ->name('documents.resubmit.edit');
     Route::post('/documents/{document}/resubmit', [DocumentController::class, 'resubmit'])

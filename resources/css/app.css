@@ -49,3 +49,16 @@
         @apply bg-background text-foreground;
     }
 }
+
+/* docx-preview: replace its gray backdrop and page shadows with the tonal
+   palette (paper-dim behind white pages), per the design system. */
+.docx-preview-host .docx-wrapper {
+    background: rgb(var(--paper-dim));
+    padding: 24px;
+}
+
+.docx-preview-host .docx-wrapper > section.docx {
+    box-shadow: none;
+    border: 1px solid rgb(var(--border));
+    margin-bottom: 24px;
+}

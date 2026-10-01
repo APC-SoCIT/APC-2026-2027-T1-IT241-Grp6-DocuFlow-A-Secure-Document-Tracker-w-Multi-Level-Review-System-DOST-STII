@@ -1,3 +1,5 @@
+import DocumentPreview from '@/Components/DocumentPreview';
+import ReviewPanel from '@/Components/ReviewPanel';
 import StatusBadge from '@/Components/StatusBadge';
 import { buttonVariants } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
@@ -14,7 +16,7 @@ function Detail({ label, children }) {
     );
 }
 
-export default function Show({ document, lastReturn, canResubmit }) {
+export default function Show({ document, lastReturn, canResubmit, preview, review }) {
     return (
         <AuthenticatedLayout
             header={
@@ -24,15 +26,10 @@ export default function Show({ document, lastReturn, canResubmit }) {
             <Head title={document.reference_number} />
 
             <div className="grid gap-6 px-8 py-6 lg:grid-cols-5">
-                {/* Left, ~60%: document preview (built in Task 6.1). */}
-                <Card className="flex min-h-[480px] items-center justify-center lg:col-span-3">
-                    <div className="text-center text-ink-muted">
-                        <span aria-hidden="true" className="material-symbols-outlined text-[40px]">
-                            description
-                        </span>
-                        <p className="mt-2 text-sm">Document preview is added in Task 6.1.</p>
-                    </div>
-                </Card>
+                {/* Left, ~60%: document preview. */}
+                <div className="lg:col-span-3">
+                    <DocumentPreview preview={preview} title={document.reference_number} />
+                </div>
 
                 {/* Right, ~40%: stacked cards. */}
                 <div className="space-y-6 lg:col-span-2">
@@ -81,6 +78,8 @@ export default function Show({ document, lastReturn, canResubmit }) {
                             </CardContent>
                         </Card>
                     )}
+
+                    {review && <ReviewPanel documentId={document.id} review={review} />}
                 </div>
             </div>
         </AuthenticatedLayout>

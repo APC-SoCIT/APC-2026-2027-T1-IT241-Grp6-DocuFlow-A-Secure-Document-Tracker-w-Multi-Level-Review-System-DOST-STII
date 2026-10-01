@@ -24,6 +24,18 @@ class Review extends Model
     public const ACTION_APPROVE = 'approve';
 
     /**
+     * 5 if done before day 5, 3 if on day 5, 1 if after.
+     */
+    public static function ratingFor(int $tatDays): int
+    {
+        return match (true) {
+            $tatDays < 5 => 5,
+            $tatDays === 5 => 3,
+            default => 1,
+        };
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
