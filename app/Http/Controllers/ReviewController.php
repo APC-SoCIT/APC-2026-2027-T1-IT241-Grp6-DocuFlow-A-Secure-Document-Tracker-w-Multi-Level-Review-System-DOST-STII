@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ReviewController extends Controller
 {
@@ -17,6 +18,7 @@ class ReviewController extends Controller
      */
     private const ACTIONS_BY_LEVEL = [
         1 => [Review::ACTION_RETURN, Review::ACTION_FORWARD],
+        2 => [Review::ACTION_RETURN, Review::ACTION_ENDORSE],
     ];
 
     /**
@@ -48,16 +50,16 @@ class ReviewController extends Controller
             'action' => ['required', Rule::in(self::ACTIONS_BY_LEVEL[$level] ?? [])],
             'remarks' => ['nullable', 'required_if:action,return', 'string', 'max:5000'],
             'l2_reviewer_id' => [
+                'exclude_unless:action,forward',
                 'bail',
-                'nullable',
-                'required_if:action,forward',
+                'required',
                 Rule::notIn([$reviewer->id, $document->submitted_by]),
                 Rule::exists('users', 'id')->where('role', User::ROLE_L2),
             ],
         ], [
             'action.in' => 'That action is not available at this review level.',
             'remarks.required_if' => 'Add remarks so the Document Source knows what to change.',
-            'l2_reviewer_id.required_if' => 'Select a Section Head (L2) to forward to.',
+            'l2_reviewer_id.required' => 'Select a Section Head (L2) to forward to.',
             'l2_reviewer_id.not_in' => 'You cannot forward a document to yourself or its submitter.',
             'l2_reviewer_id.exists' => 'Select a valid Section Head (L2).',
         ]);
@@ -82,10 +84,34 @@ class ReviewController extends Controller
                     User::findOrFail($validated['l2_reviewer_id']),
                     'forwarded',
                 ),
+                Review::ACTION_ENDORSE => $this->assignNextLevel(
+                    $document,
+                    $reviewer,
+                    $this->divisionChiefFor($document, $reviewer),
+                    'endorsed',
+                ),
             };
         });
 
         return redirect()->route('reviews.index')->with('success', $message);
+    }
+
+    /**
+     * The one seeded L3. Endorse picks it automatically (no dropdown).
+     */
+    private function divisionChiefFor(Document $document, User $reviewer): User
+    {
+        $divisionChief = User::where('role', User::ROLE_L3)
+            ->whereKeyNot([$reviewer->id, $document->submitted_by])
+            ->first();
+
+        if ($divisionChief === null) {
+            throw ValidationException::withMessages([
+                'action' => 'There is no Division Chief (L3) account to endorse to.',
+            ]);
+        }
+
+        return $divisionChief;
     }
 
     private function returnToSource(Document $document, User $reviewer, int $level): string

@@ -263,6 +263,12 @@ class DocumentController extends Controller
                     ->orderBy('name')
                     ->get(['id', 'name'])
                 : [],
+            // Endorse goes to the one seeded L3; shown so the L2 knows who.
+            'l3ReviewerName' => $document->current_review_level === 2
+                ? User::where('role', User::ROLE_L3)
+                    ->whereKeyNot([$user->id, $document->submitted_by])
+                    ->value('name')
+                : null,
         ];
     }
 

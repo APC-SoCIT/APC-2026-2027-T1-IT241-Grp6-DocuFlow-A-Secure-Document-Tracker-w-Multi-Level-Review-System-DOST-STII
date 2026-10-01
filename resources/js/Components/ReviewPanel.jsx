@@ -9,6 +9,7 @@ import { useForm } from '@inertiajs/react';
 /**
  * Right-column review cards: (1) assessment/remarks, (2) the actions for
  * this review level. L1 = Return or Forward (to a chosen L2).
+ * L2 = Return or Endorse (to the one seeded L3).
  */
 export default function ReviewPanel({ documentId, review }) {
     const { data, setData, post, processing, errors, transform } = useForm({
@@ -74,6 +75,13 @@ export default function ReviewPanel({ documentId, review }) {
                         </div>
                     )}
 
+                    {review.level === 2 && (
+                        <p className="text-sm text-ink-muted">
+                            Endorsing sends this document to the Division Chief (L3)
+                            {review.l3ReviewerName ? `, ${review.l3ReviewerName}` : ''}.
+                        </p>
+                    )}
+
                     <FieldError message={errors.action} />
 
                     <div className="flex justify-end gap-3">
@@ -87,6 +95,11 @@ export default function ReviewPanel({ documentId, review }) {
                         {review.level === 1 && (
                             <Button disabled={processing} onClick={() => act('forward')}>
                                 Forward
+                            </Button>
+                        )}
+                        {review.level === 2 && (
+                            <Button disabled={processing} onClick={() => act('endorse')}>
+                                Endorse
                             </Button>
                         )}
                     </div>
