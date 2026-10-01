@@ -2,14 +2,8 @@ import StatusBadge from '@/Components/StatusBadge';
 import { buttonVariants } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { formatDateTime } from '@/lib/format';
 import { Head, Link } from '@inertiajs/react';
-
-function formatDateTime(value) {
-    return new Date(value).toLocaleString('en-PH', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    });
-}
 
 function Detail({ label, children }) {
     return (

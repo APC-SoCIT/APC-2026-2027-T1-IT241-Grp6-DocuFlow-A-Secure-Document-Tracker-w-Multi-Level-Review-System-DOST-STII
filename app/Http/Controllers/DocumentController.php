@@ -17,6 +17,56 @@ use Inertia\Response;
 class DocumentController extends Controller
 {
     /**
+     * My documents: everything the Document Source submitted, newest first.
+     */
+    public function index(Request $request): Response
+    {
+        abort_unless($request->user()->role === User::ROLE_DOCUMENT_SOURCE, 403);
+
+        $documents = Document::with('submitter:id,name')
+            ->where('submitted_by', $request->user()->id)
+            ->latest()
+            ->get();
+
+        return Inertia::render('Documents/Index', [
+            'documents' => $documents->map(fn (Document $d) => $this->listRow($d)),
+        ]);
+    }
+
+    /**
+     * Review queue: documents currently assigned to this reviewer,
+     * oldest assignment first (TAT counts from assignment).
+     */
+    public function reviewQueue(Request $request): Response
+    {
+        abort_if($request->user()->role === User::ROLE_DOCUMENT_SOURCE, 403);
+
+        $documents = Document::with('submitter:id,name')
+            ->where('assigned_reviewer_id', $request->user()->id)
+            ->orderBy('assigned_at')
+            ->get();
+
+        return Inertia::render('Reviews/Index', [
+            'documents' => $documents->map(fn (Document $d) => $this->listRow($d)),
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function listRow(Document $document): array
+    {
+        return [
+            'id' => $document->id,
+            'reference_number' => $document->reference_number,
+            'document_type' => $document->document_type,
+            'submitted_by' => $document->submitter->name,
+            'submitted_at' => $document->created_at,
+            'status' => $document->status,
+        ];
+    }
+
+    /**
      * Show the submission form.
      */
     public function create(Request $request): Response
