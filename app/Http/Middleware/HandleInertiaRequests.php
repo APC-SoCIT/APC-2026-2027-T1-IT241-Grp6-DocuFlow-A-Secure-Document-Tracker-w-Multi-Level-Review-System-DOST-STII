@@ -37,6 +37,10 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
             ],
+            // Drives the count bubble on the sidebar's Notifications item.
+            'unreadNotifications' => fn () => $request->user()
+                ? $request->user()->notifications()->where('is_read', false)->count()
+                : 0,
         ];
     }
 }

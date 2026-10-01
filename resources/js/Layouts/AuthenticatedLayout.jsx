@@ -50,7 +50,7 @@ const navItemClass =
     'flex h-10 w-full items-center gap-3 rounded-md px-[10px] text-sm font-medium transition-colors';
 
 export default function AuthenticatedLayout({ header, children }) {
-    const { auth, flash } = usePage().props;
+    const { auth, flash, unreadNotifications } = usePage().props;
     const user = auth.user;
     const [expanded, setExpanded] = useState(readSidebarExpanded);
 
@@ -82,12 +82,24 @@ export default function AuthenticatedLayout({ header, children }) {
                 <nav className="flex flex-col gap-1">
                     {navItemsFor(user.role).map((item) => {
                         const active = route().current(item.route);
+                        const count =
+                            item.route === 'notifications.index' ? unreadNotifications : 0;
+                        const countLabel = count > 99 ? '99+' : count;
+                        const bubbleColors = active
+                            ? 'bg-white text-dost-blue'
+                            : 'bg-dost-blue text-white';
 
                         return (
                             <Link
                                 key={item.route}
                                 href={route(item.route)}
-                                title={expanded ? undefined : item.label}
+                                title={
+                                    expanded
+                                        ? undefined
+                                        : count
+                                          ? `${item.label} (${count} unread)`
+                                          : item.label
+                                }
                                 aria-current={active ? 'page' : undefined}
                                 className={cn(
                                     navItemClass,
@@ -97,10 +109,33 @@ export default function AuthenticatedLayout({ header, children }) {
                                         : 'text-ink-muted hover:bg-paper hover:text-ink',
                                 )}
                             >
-                                <Icon name={item.icon} />
+                                <span className="relative flex shrink-0">
+                                    <Icon name={item.icon} />
+                                    {count > 0 && !expanded && (
+                                        <span
+                                            className={cn(
+                                                'absolute -right-1.5 -top-1 min-w-4 rounded-full px-1 text-center text-[10px] font-bold leading-4',
+                                                bubbleColors,
+                                            )}
+                                        >
+                                            {countLabel}
+                                        </span>
+                                    )}
+                                </span>
                                 {expanded && (
                                     <span className="whitespace-nowrap">{item.label}</span>
                                 )}
+                                {count > 0 && expanded && (
+                                    <span
+                                        className={cn(
+                                            'ml-auto min-w-5 rounded-full px-1.5 text-center text-xs font-bold leading-5',
+                                            bubbleColors,
+                                        )}
+                                    >
+                                        {countLabel}
+                                    </span>
+                                )}
+                                {count > 0 && <span className="sr-only">, {count} unread</span>}
                             </Link>
                         );
                     })}

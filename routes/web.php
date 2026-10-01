@@ -1,12 +1,12 @@
 <?php
 
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReviewController;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 // Guests are sent to login by the auth middleware; signed-in users to their home screen.
 Route::redirect('/', '/dashboard');
@@ -37,9 +37,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('documents.resubmit');
     Route::get('/review-queue', [DocumentController::class, 'reviewQueue'])
         ->name('reviews.index');
-    // Placeholder until Day 9.
-    Route::get('/notifications', fn () => Inertia::render('Placeholder', ['title' => 'Notifications']))
+    Route::get('/notifications', [NotificationController::class, 'index'])
         ->name('notifications.index');
+    Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])
+        ->name('notifications.read-all');
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'read'])
+        ->name('notifications.read');
 });
 
 Route::middleware('auth')->group(function () {
