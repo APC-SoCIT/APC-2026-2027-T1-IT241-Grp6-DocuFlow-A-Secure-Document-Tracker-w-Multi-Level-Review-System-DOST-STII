@@ -22,7 +22,9 @@ class DocumentController extends Controller
      */
     public function index(Request $request): Response
     {
-        abort_unless($request->user()->role === User::ROLE_DOCUMENT_SOURCE, 403);
+        if ($request->user()->role !== User::ROLE_DOCUMENT_SOURCE) {
+            $this->deny('Only a Document Source has a My documents list. Your documents to review are in your Review queue.');
+        }
 
         $documents = Document::with('submitter:id,name')
             ->where('submitted_by', $request->user()->id)
@@ -40,7 +42,9 @@ class DocumentController extends Controller
      */
     public function reviewQueue(Request $request): Response
     {
-        abort_if($request->user()->role === User::ROLE_DOCUMENT_SOURCE, 403);
+        if ($request->user()->role === User::ROLE_DOCUMENT_SOURCE) {
+            $this->deny('Only reviewers have a Review queue. Your submissions are in My documents.');
+        }
 
         $documents = Document::with('submitter:id,name')
             ->where('assigned_reviewer_id', $request->user()->id)
@@ -72,7 +76,9 @@ class DocumentController extends Controller
      */
     public function create(Request $request): Response
     {
-        abort_unless($request->user()->role === User::ROLE_DOCUMENT_SOURCE, 403);
+        if ($request->user()->role !== User::ROLE_DOCUMENT_SOURCE) {
+            $this->deny('Only a Document Source can submit documents.');
+        }
 
         return Inertia::render('Documents/Create', [
             'documentTypes' => Document::TYPES,
@@ -90,7 +96,9 @@ class DocumentController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $submitter = $request->user();
-        abort_unless($submitter->role === User::ROLE_DOCUMENT_SOURCE, 403);
+        if ($submitter->role !== User::ROLE_DOCUMENT_SOURCE) {
+            $this->deny('Only a Document Source can submit documents.');
+        }
 
         $validated = $request->validate([
             'document_type' => ['required', Rule::in(Document::TYPES)],
@@ -150,7 +158,9 @@ class DocumentController extends Controller
     public function show(Request $request, Document $document): Response
     {
         $user = $request->user();
-        $this->authorizeView($user, $document);
+        if (! $document->isVisibleTo($user)) {
+            $this->deny("You don't have access to {$document->reference_number}. Only its Document Source and its reviewers can open it.");
+        }
 
         $lastReturn = $document->status === Document::STATUS_RETURNED
             ? $document->reviews()->with('reviewer:id,name')
@@ -188,7 +198,7 @@ class DocumentController extends Controller
      */
     public function file(Request $request, Document $document): StreamedResponse
     {
-        $this->authorizeView($request->user(), $document);
+        abort_unless($document->isVisibleTo($request->user()), 403);
         abort_if($document->file_path === null || ! Storage::exists($document->file_path), 404);
 
         $extension = pathinfo($document->file_path, PATHINFO_EXTENSION);
@@ -198,16 +208,6 @@ class DocumentController extends Controller
             "{$document->reference_number}.{$extension}",
             [],
             $extension === 'pdf' ? 'inline' : 'attachment',
-        );
-    }
-
-    private function authorizeView(User $user, Document $document): void
-    {
-        abort_unless(
-            $document->submitted_by === $user->id
-                || $document->assigned_reviewer_id === $user->id
-                || $document->reviews()->where('reviewer_id', $user->id)->exists(),
-            403,
         );
     }
 
@@ -311,7 +311,9 @@ class DocumentController extends Controller
             ->where('review_level', 1)
             ->latest('id')
             ->value('reviewer_id');
-        abort_if($l1ReviewerId === null, 409, 'This document has no previous L1 reviewer.');
+        if ($l1ReviewerId === null) {
+            $this->deny("{$document->reference_number} can't be resubmitted: it has no previous L1 reviewer to go back to.");
+        }
 
         $usesLink = $validated['source_type'] === 'link';
         $oldFilePath = $document->file_path;
@@ -353,11 +355,13 @@ class DocumentController extends Controller
 
     private function authorizeResubmission(Request $request, Document $document): void
     {
-        abort_unless(
-            $document->submitted_by === $request->user()->id
-                && $document->status === Document::STATUS_RETURNED,
-            403,
-        );
+        if ($document->submitted_by !== $request->user()->id) {
+            $this->deny("Only the Document Source who submitted {$document->reference_number} can resubmit it.");
+        }
+
+        if ($document->status !== Document::STATUS_RETURNED) {
+            $this->deny("{$document->reference_number} can only be resubmitted after it is returned. Its status is {$document->statusLabel()}.");
+        }
     }
 
     /**

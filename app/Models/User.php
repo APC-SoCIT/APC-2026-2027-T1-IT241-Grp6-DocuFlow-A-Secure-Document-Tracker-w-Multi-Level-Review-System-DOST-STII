@@ -36,6 +36,16 @@ class User extends Authenticatable
         ];
     }
 
+    /**
+     * Where this account lands after login: My documents or Review queue.
+     */
+    public function homeRoute(): string
+    {
+        return $this->role === self::ROLE_DOCUMENT_SOURCE
+            ? 'documents.index'
+            : 'reviews.index';
+    }
+
     public function submittedDocuments(): HasMany
     {
         return $this->hasMany(Document::class, 'submitted_by');

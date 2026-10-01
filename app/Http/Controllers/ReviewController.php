@@ -39,13 +39,18 @@ class ReviewController extends Controller
         $reviewer = $request->user();
         $level = $document->current_review_level;
 
-        abort_unless(
-            $document->assigned_reviewer_id === $reviewer->id
-                && $document->status === (self::PENDING_STATUS_BY_LEVEL[$level] ?? null),
-            403,
-        );
         // Self-Review Restriction: never review your own submission.
-        abort_if($document->submitted_by === $reviewer->id, 403);
+        if ($document->submitted_by === $reviewer->id) {
+            $this->deny("You can't review {$document->reference_number} because you submitted it.");
+        }
+
+        if ($document->status !== (self::PENDING_STATUS_BY_LEVEL[$level] ?? null)) {
+            $this->deny("{$document->reference_number} is no longer waiting for review. Its status is {$document->statusLabel()}.");
+        }
+
+        if ($document->assigned_reviewer_id !== $reviewer->id) {
+            $this->deny("{$document->reference_number} is not assigned to you for review.");
+        }
 
         $validated = $request->validate([
             'action' => ['required', Rule::in(self::ACTIONS_BY_LEVEL[$level] ?? [])],

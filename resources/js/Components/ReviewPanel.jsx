@@ -20,7 +20,10 @@ export default function ReviewPanel({ documentId, review }) {
 
     function act(action) {
         transform((form) => ({ ...form, action }));
-        post(route('reviews.store', documentId), { preserveScroll: true });
+        post(route('reviews.store', documentId), {
+            // Stay put for field errors; scroll up when a blocked-action banner shows.
+            preserveScroll: (page) => Object.keys(page.props.errors ?? {}).length > 0,
+        });
     }
 
     return (

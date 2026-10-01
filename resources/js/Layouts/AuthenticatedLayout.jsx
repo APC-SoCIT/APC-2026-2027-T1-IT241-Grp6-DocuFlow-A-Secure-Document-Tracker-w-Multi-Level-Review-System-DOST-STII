@@ -200,6 +200,16 @@ export default function AuthenticatedLayout({ header, children }) {
                     </div>
                 )}
 
+                {flash.error && (
+                    <div
+                        role="alert"
+                        className="mx-8 mt-6 flex items-center gap-3 rounded-lg bg-stamp-rust-bg px-4 py-3 text-sm font-medium text-stamp-rust"
+                    >
+                        <Icon name="error" />
+                        {flash.error}
+                    </div>
+                )}
+
                 <main>{children}</main>
             </div>
         </div>

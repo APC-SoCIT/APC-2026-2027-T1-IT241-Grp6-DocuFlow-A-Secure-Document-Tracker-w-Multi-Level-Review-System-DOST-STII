@@ -26,6 +26,15 @@ class Document extends Model
     public const STATUS_RETURNED = 'returned_to_source';
     public const STATUS_APPROVED = 'approved_complete';
 
+    // Same sentence-case labels as the status badges, for messages.
+    public const STATUS_LABELS = [
+        self::STATUS_PENDING_L1 => 'Pending L1 review',
+        self::STATUS_PENDING_L2 => 'Pending L2 review',
+        self::STATUS_PENDING_L3 => 'Pending L3 review',
+        self::STATUS_RETURNED => 'Returned to source',
+        self::STATUS_APPROVED => 'Approved - complete',
+    ];
+
     public const TYPES = [
         'Report',
         'Policy Draft',
@@ -105,6 +114,21 @@ class Document extends Model
         $assigned = $this->assigned_at->copy()->setTimezone('Asia/Manila')->startOfDay();
 
         return (int) $assigned->diffInDays(now('Asia/Manila')->startOfDay());
+    }
+
+    public function statusLabel(): string
+    {
+        return self::STATUS_LABELS[$this->status] ?? $this->status;
+    }
+
+    /**
+     * Its submitter, current reviewer and past reviewers can open it.
+     */
+    public function isVisibleTo(User $user): bool
+    {
+        return $this->submitted_by === $user->id
+            || $this->assigned_reviewer_id === $user->id
+            || $this->reviews()->where('reviewer_id', $user->id)->exists();
     }
 
     public function submitter(): BelongsTo

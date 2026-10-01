@@ -4,7 +4,6 @@ use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReviewController;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -13,9 +12,7 @@ Route::redirect('/', '/dashboard');
 
 // Login lands here; send each role to its home screen.
 Route::get('/dashboard', function (Request $request) {
-    return $request->user()->role === User::ROLE_DOCUMENT_SOURCE
-        ? redirect()->route('documents.index')
-        : redirect()->route('reviews.index');
+    return redirect()->route($request->user()->homeRoute());
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware(['auth', 'verified'])->group(function () {

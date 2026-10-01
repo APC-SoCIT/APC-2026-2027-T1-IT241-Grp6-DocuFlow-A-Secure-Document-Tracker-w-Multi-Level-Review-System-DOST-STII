@@ -37,7 +37,9 @@ class NotificationController extends Controller
      */
     public function read(Request $request, Notification $notification): RedirectResponse
     {
-        abort_unless($notification->user_id === $request->user()->id, 403);
+        if ($notification->user_id !== $request->user()->id) {
+            $this->deny('That notification belongs to another account.');
+        }
 
         $notification->update(['is_read' => true]);
 
