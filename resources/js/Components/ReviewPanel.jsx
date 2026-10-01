@@ -9,7 +9,7 @@ import { useForm } from '@inertiajs/react';
 /**
  * Right-column review cards: (1) assessment/remarks, (2) the actions for
  * this review level. L1 = Return or Forward (to a chosen L2).
- * L2 = Return or Endorse (to the one seeded L3).
+ * L2 = Return or Endorse (to the one seeded L3). L3 = Return or Approve.
  */
 export default function ReviewPanel({ documentId, review }) {
     const { data, setData, post, processing, errors, transform } = useForm({
@@ -100,6 +100,11 @@ export default function ReviewPanel({ documentId, review }) {
                         {review.level === 2 && (
                             <Button disabled={processing} onClick={() => act('endorse')}>
                                 Endorse
+                            </Button>
+                        )}
+                        {review.level === 3 && (
+                            <Button disabled={processing} onClick={() => act('approve')}>
+                                Approve
                             </Button>
                         )}
                     </div>

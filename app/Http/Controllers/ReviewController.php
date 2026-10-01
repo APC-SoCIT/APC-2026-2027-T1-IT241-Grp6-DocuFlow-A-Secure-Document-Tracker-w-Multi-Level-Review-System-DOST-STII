@@ -19,6 +19,7 @@ class ReviewController extends Controller
     private const ACTIONS_BY_LEVEL = [
         1 => [Review::ACTION_RETURN, Review::ACTION_FORWARD],
         2 => [Review::ACTION_RETURN, Review::ACTION_ENDORSE],
+        3 => [Review::ACTION_RETURN, Review::ACTION_APPROVE],
     ];
 
     /**
@@ -90,6 +91,7 @@ class ReviewController extends Controller
                     $this->divisionChiefFor($document, $reviewer),
                     'endorsed',
                 ),
+                Review::ACTION_APPROVE => $this->approve($document, $reviewer),
             };
         });
 
@@ -112,6 +114,22 @@ class ReviewController extends Controller
         }
 
         return $divisionChief;
+    }
+
+    private function approve(Document $document, User $reviewer): string
+    {
+        $document->update([
+            'status' => Document::STATUS_APPROVED,
+            'assigned_reviewer_id' => null,
+            'assigned_at' => null,
+        ]);
+
+        $document->notifications()->create([
+            'user_id' => $document->submitted_by,
+            'message' => "{$reviewer->name} approved {$document->reference_number}. Review is complete.",
+        ]);
+
+        return "{$document->reference_number} approved.";
     }
 
     private function returnToSource(Document $document, User $reviewer, int $level): string
