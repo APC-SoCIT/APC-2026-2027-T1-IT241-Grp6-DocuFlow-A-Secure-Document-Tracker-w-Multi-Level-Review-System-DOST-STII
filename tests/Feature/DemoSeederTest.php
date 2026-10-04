@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\Document;
 use App\Models\Notification;
+use App\Models\Review;
+use App\Services\TatRatingService;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -21,16 +23,39 @@ class DemoSeederTest extends TestCase
         $this->seed(DemoSeeder::class);
 
         $this->assertSame([
-            'approved_complete' => 1,
-            'pending_l1_review' => 3,
-            'pending_l2_review' => 1,
-            'pending_l3_review' => 1,
-            'returned_to_source' => 1,
+            'approved_complete' => 2,
+            'pending_l1_review' => 4,
+            'pending_l2_review' => 2,
+            'pending_l3_review' => 2,
+            'returned_to_source' => 2,
         ], Document::query()->orderBy('status')->get()->countBy('status')->all());
 
-        // Ratings on the approved document: 2, 5 and 7 days -> 5, 3, 1.
-        $approved = Document::where('status', Document::STATUS_APPROVED)->firstOrFail();
-        $this->assertSame([5, 3, 1], $approved->reviews()->orderBy('id')->pluck('rating')->all());
+        // Approved in each section: 2, 5, 7 days -> 5, 3, 1 and 1, 3, 5 days -> 5, 5, 3.
+        $this->assertEqualsCanonicalizing(
+            [[5, 3, 1], [5, 5, 3]],
+            Document::where('status', Document::STATUS_APPROVED)->get()
+                ->map(fn ($d) => $d->reviews()->orderBy('id')->pluck('rating')->all())->all(),
+        );
+
+        // Both Section A and Section B reviewers have completed reviews (averages aren't empty).
+        foreach (['Section A', 'Section B'] as $section) {
+            $this->assertTrue(
+                Review::whereHas('reviewer', fn ($q) => $q->where('section', $section))->exists(),
+                "{$section} has completed reviews",
+            );
+        }
+
+        // Overdue documents (pending with one reviewer for more than 5 days).
+        $tat = app(TatRatingService::class);
+        $this->assertSame(2, Document::all()->filter(fn ($d) => $tat->isOverdue($d))->count());
+
+        // New and Ongoing both appear; L1 and L2 submitters are included.
+        $this->assertSame(3, Document::where('review_state', Document::REVIEW_STATE_ONGOING)->count());
+        $this->assertGreaterThan(0, Document::where('review_state', Document::REVIEW_STATE_NEW)->count());
+        $this->assertEqualsCanonicalizing(
+            ['document_source', 'l1', 'l2'],
+            Document::with('submitter')->get()->pluck('submitter.role')->unique()->values()->all(),
+        );
 
         // The resubmitted document is on revision 2, back with its original L1.
         $resubmitted = Document::whereHas('revisions', fn ($q) => $q->where('revision_number', 2))->firstOrFail();
@@ -70,10 +95,10 @@ class DemoSeederTest extends TestCase
                 "{$document->reference_number} has an unread notification for whoever acts next",
             );
         }
-        $this->assertSame(7, Notification::where('is_read', false)->count());
+        $this->assertSame(12, Notification::where('is_read', false)->count());
 
         // Running it again starts clean instead of piling up.
         $this->seed(DemoSeeder::class);
-        $this->assertSame(7, Document::count());
+        $this->assertSame(12, Document::count());
     }
 }

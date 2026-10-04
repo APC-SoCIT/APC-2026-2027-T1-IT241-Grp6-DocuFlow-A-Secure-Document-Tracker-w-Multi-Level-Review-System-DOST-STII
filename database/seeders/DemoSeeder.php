@@ -29,9 +29,11 @@ class DemoSeeder extends Seeder
 
     private User $cruz;
 
-    private User $sectionHead;
+    private User $carlo;
 
-    private User $divisionChief;
+    private User $teresa;
+
+    private User $liza;
 
     public function run(): void
     {
@@ -42,10 +44,13 @@ class DemoSeeder extends Seeder
         Storage::deleteDirectory('documents');
 
         $this->source = User::where('email', 'source@docuflow.test')->firstOrFail();
-        $this->reyes = User::where('email', 'l1.reyes@docuflow.test')->firstOrFail();
-        $this->cruz = User::where('email', 'l1.cruz@docuflow.test')->firstOrFail();
-        $this->sectionHead = User::where('email', 'l2@docuflow.test')->firstOrFail();
-        $this->divisionChief = User::where('email', 'l3@docuflow.test')->firstOrFail();
+        $this->reyes = User::where('email', 'l1.reyes@docuflow.test')->firstOrFail();     // L1, Section A
+        $this->cruz = User::where('email', 'l1.cruz@docuflow.test')->firstOrFail();       // L1, Section B
+        $this->carlo = User::where('email', 'l2@docuflow.test')->firstOrFail();           // L2, Section A
+        $this->teresa = User::where('email', 'l2.navarro@docuflow.test')->firstOrFail();  // L2, Section B
+        $this->liza = User::where('email', 'l3@docuflow.test')->firstOrFail();            // L3
+
+        // --- Section A -------------------------------------------------------
 
         // 1. Approved after the full chain; slower reviews give ratings 5, 3 and 1.
         $doc = $this->submit('Report', $this->reyes, $this->daysAgo(20), $this->pdf('Annual Research Output Report 2025', [
@@ -54,20 +59,11 @@ class DemoSeeder extends Seeder
             'Section 2: Technology transfers',
             'Section 3: Recommendations for 2026',
         ]));
-        $this->review($doc, $this->reyes, 'forward', $this->daysAgo(18), 'Complete and well documented.', $this->sectionHead);
-        $this->review($doc, $this->sectionHead, 'endorse', $this->daysAgo(13), 'Endorsed for approval.');
-        $this->review($doc, $this->divisionChief, 'approve', $this->daysAgo(6), 'Approved for publication.');
+        $this->review($doc, $this->reyes, 'forward', $this->daysAgo(18), 'Complete and well documented.', $this->carlo);
+        $this->review($doc, $this->carlo, 'endorse', $this->daysAgo(13), 'Endorsed for approval.');
+        $this->review($doc, $this->liza, 'approve', $this->daysAgo(6), 'Approved for publication.');
 
-        // 2. Returned by the Section Head (L2), waiting for the Document Source.
-        $doc = $this->submit('Policy Draft', $this->cruz, $this->daysAgo(9), $this->pdf('Draft Policy: Records Retention', [
-            'Purpose: define retention periods for official records.',
-            'Scope: all divisions of DOST-STII.',
-            'Retention schedule: to follow in the annex.',
-        ]));
-        $this->review($doc, $this->cruz, 'forward', $this->daysAgo(8), 'Good basis for the policy.', $this->sectionHead);
-        $this->review($doc, $this->sectionHead, 'return', $this->daysAgo(4), "The annex with the retention schedule is missing.\nPlease attach it and cite the legal basis for each period.");
-
-        // 3. Returned by L1, then resubmitted as revision 2: back with the same L1.
+        // 2. Returned by L1, then resubmitted as revision 2: back with the same L1, opened.
         $doc = $this->submit('Other', $this->reyes, $this->daysAgo(7), $this->pdf('Equipment Inventory Summary', [
             'Inventory of laboratory equipment as of September 2026.',
             'Totals per division are listed below.',
@@ -77,17 +73,9 @@ class DemoSeeder extends Seeder
             'Inventory of laboratory equipment as of September 2026.',
             'Serial numbers added for every item.',
         ]));
+        $this->opened($doc);
 
-        // 4. Pending L3: forwarded and endorsed, waiting for the Division Chief.
-        $doc = $this->submit('Project Proposal', $this->cruz, $this->daysAgo(5), $this->pdf('Project Proposal: Digital Archive Pilot', [
-            'Objective: digitize 10,000 archival records in 12 months.',
-            'Budget: PHP 1,200,000',
-            'Timeline: January to December 2027',
-        ]));
-        $this->review($doc, $this->cruz, 'forward', $this->daysAgo(4), 'Feasible scope.', $this->sectionHead);
-        $this->review($doc, $this->sectionHead, 'endorse', $this->daysAgo(2), 'Recommend approval.');
-
-        // 5. Pending L2: forwarded to the Section Head (Excel file).
+        // 3. Pending L2 with Carlo (Excel file).
         $doc = $this->submit('Financial Record', $this->reyes, $this->daysAgo(3), $this->xlsx('Budget', [
             ['Item', 'Quantity', 'Unit cost', 'Total'],
             ['Laptop', 2, 45000, 90000],
@@ -95,9 +83,71 @@ class DemoSeeder extends Seeder
             ['Scanner', 1, 18000, 18000],
             ['', '', 'Grand total', 120500],
         ]));
-        $this->review($doc, $this->reyes, 'forward', $this->daysAgo(2), 'Figures match the purchase requests.', $this->sectionHead);
+        $this->review($doc, $this->reyes, 'forward', $this->daysAgo(2), 'Figures match the purchase requests.', $this->carlo);
 
-        // 6. Pending L1 for 6 days (overdue: acting now earns a rating of 1). Word file.
+        // 4. Pending L1 with Reyes, submitted yesterday (New).
+        $this->submit('Report', $this->reyes, $this->daysAgo(1), $this->pdf('Monthly Accomplishment Report: September 2026', [
+            'Key accomplishments for the month of September 2026.',
+            '1. Completed the user survey for the library portal.',
+            '2. Conducted two training sessions on research databases.',
+        ]));
+
+        // 5. Submitted by an L2 (Carlo): forwarded by Reyes to the other L2,
+        //    endorsed, now with the Division Chief.
+        $doc = $this->submit('Project Proposal', $this->reyes, $this->daysAgo(9), $this->pdf('Project Proposal: Shared Lab Booking System', [
+            'Objective: one booking calendar for all laboratory rooms.',
+            'Budget: PHP 350,000',
+        ]), $this->carlo);
+        $this->review($doc, $this->reyes, 'forward', $this->daysAgo(8), 'Clear scope and budget.', $this->teresa);
+        $this->review($doc, $this->teresa, 'endorse', $this->daysAgo(4), 'Recommend approval.');
+
+        // --- Section B -------------------------------------------------------
+
+        // 6. Approved in Section B: ratings 5, 5 and 3.
+        $doc = $this->submit('Financial Record', $this->cruz, $this->daysAgo(25), $this->xlsx('Q2 Expenses', [
+            ['Month', 'Supplies', 'Travel', 'Total'],
+            ['April', 18000, 9500, 27500],
+            ['May', 21000, 4000, 25000],
+            ['June', 16500, 12000, 28500],
+        ]));
+        $this->review($doc, $this->cruz, 'forward', $this->daysAgo(24), 'Totals reconcile with the ledger.', $this->teresa);
+        $this->review($doc, $this->teresa, 'endorse', $this->daysAgo(21), 'Endorsed.');
+        $this->review($doc, $this->liza, 'approve', $this->daysAgo(16), 'Approved.');
+
+        // 7. Returned by the Section Head (L2), waiting for the Document Source.
+        $doc = $this->submit('Policy Draft', $this->cruz, $this->daysAgo(9), $this->pdf('Draft Policy: Records Retention', [
+            'Purpose: define retention periods for official records.',
+            'Scope: all divisions of DOST-STII.',
+            'Retention schedule: to follow in the annex.',
+        ]));
+        $this->review($doc, $this->cruz, 'forward', $this->daysAgo(8), 'Good basis for the policy.', $this->teresa);
+        $this->review($doc, $this->teresa, 'return', $this->daysAgo(4), "The annex with the retention schedule is missing.\nPlease attach it and cite the legal basis for each period.");
+
+        // 8. Returned by the Division Chief (L3) after endorsement.
+        $doc = $this->submit('Report', $this->cruz, $this->daysAgo(15), $this->pdf('Library Usage Report: Q3 2026', [
+            'Visits, loans and database sessions for July to September 2026.',
+        ]));
+        $this->review($doc, $this->cruz, 'forward', $this->daysAgo(14), 'Data is complete.', $this->teresa);
+        $this->review($doc, $this->teresa, 'endorse', $this->daysAgo(12), 'Endorsed.');
+        $this->review($doc, $this->liza, 'return', $this->daysAgo(10), 'Please compare against Q3 2025 before this goes out.');
+
+        // 9. Pending L2 with Teresa for 7 days: overdue, opened (Ongoing).
+        $doc = $this->submit('Policy Draft', $this->cruz, $this->daysAgo(12), $this->pdf('Draft Policy: Remote Work Guidelines', [
+            'Eligibility, schedules and reporting for remote work.',
+        ]));
+        $this->review($doc, $this->cruz, 'forward', $this->daysAgo(7), 'Ready for the Section Head.', $this->teresa);
+        $this->opened($doc);
+
+        // 10. Pending L3 with the Division Chief (endorsed by Carlo).
+        $doc = $this->submit('Project Proposal', $this->cruz, $this->daysAgo(5), $this->pdf('Project Proposal: Digital Archive Pilot', [
+            'Objective: digitize 10,000 archival records in 12 months.',
+            'Budget: PHP 1,200,000',
+            'Timeline: January to December 2027',
+        ]));
+        $this->review($doc, $this->cruz, 'forward', $this->daysAgo(4), 'Feasible scope.', $this->carlo);
+        $this->review($doc, $this->carlo, 'endorse', $this->daysAgo(2), 'Recommend approval.');
+
+        // 11. Pending L1 with Cruz for 6 days: overdue (Word file).
         $this->submit('Memo', $this->cruz, $this->daysAgo(6), $this->docx('Memorandum: Office Relocation', [
             'To: All STII personnel',
             'Subject: Temporary relocation of the Records Section',
@@ -105,12 +155,11 @@ class DemoSeeder extends Seeder
             'Please coordinate document requests through the division secretaries.',
         ]));
 
-        // 7. Pending L1, submitted yesterday.
-        $this->submit('Report', $this->reyes, $this->daysAgo(1), $this->pdf('Monthly Accomplishment Report: September 2026', [
-            'Key accomplishments for the month of September 2026.',
-            '1. Completed the user survey for the library portal.',
-            '2. Conducted two training sessions on research databases.',
-        ]));
+        // 12. Submitted by an L1 (Reyes) to the other L1; opened (Ongoing).
+        $doc = $this->submit('Memo', $this->cruz, $this->daysAgo(2), $this->docx('Memorandum: Section A Leave Schedule', [
+            'Planned leave for Section A staff, November to December 2026.',
+        ]), $this->reyes);
+        $this->opened($doc);
 
         // Whoever has to act next (or hear the outcome) has an unread notification.
         foreach (Document::all() as $document) {
@@ -127,8 +176,9 @@ class DemoSeeder extends Seeder
     /**
      * @param  array{0: string, 1: string}  $file  [contents, extension]
      */
-    private function submit(string $type, User $l1, Carbon $at, array $file): Document
+    private function submit(string $type, User $l1, Carbon $at, array $file, ?User $submitter = null): Document
     {
+        $submitter ??= $this->source;
         [$contents, $extension] = $file;
         $path = 'documents/demo-'.Str::random(16).'.'.$extension;
         Storage::put($path, $contents);
@@ -141,7 +191,7 @@ class DemoSeeder extends Seeder
             'status' => Document::STATUS_PENDING_L1,
             'review_state' => Document::REVIEW_STATE_NEW,
             'current_review_level' => 1,
-            'submitted_by' => $this->source->id,
+            'submitted_by' => $submitter->id,
             'assigned_reviewer_id' => $l1->id,
             'assigned_at' => $at,
         ]);
@@ -149,10 +199,10 @@ class DemoSeeder extends Seeder
 
         $this->stamp($document->revisions()->create([
             'revision_number' => 1,
-            'submitted_by' => $this->source->id,
+            'submitted_by' => $submitter->id,
         ]), $at);
 
-        $this->notify($l1, $document, "{$this->source->name} submitted {$document->reference_number} for your review.", $at);
+        $this->notify($l1, $document, "{$submitter->name} submitted {$document->reference_number} for your review.", $at);
 
         return $document;
     }
@@ -187,11 +237,11 @@ class DemoSeeder extends Seeder
                 'assigned_reviewer_id' => null,
                 'assigned_at' => null,
             ]);
-            $this->notify($this->source, $document, $action === 'return'
+            $this->notify($document->submitter, $document, $action === 'return'
                 ? "{$reviewer->name} returned {$ref} at Level {$level}. Review the remarks and resubmit."
                 : "{$reviewer->name} approved {$ref}. Review is complete.", $at);
         } else {
-            $next ??= $this->divisionChief; // endorse goes to the one L3
+            $next ??= $this->liza; // endorse goes to the one L3
             $nextLevel = $level + 1;
             $document->update([
                 'status' => $nextLevel === 2 ? Document::STATUS_PENDING_L2 : Document::STATUS_PENDING_L3,
@@ -236,10 +286,18 @@ class DemoSeeder extends Seeder
         $this->stamp($document->revisions()->create([
             'revision_number' => $revisionNumber,
             'change_note' => $changeNote,
-            'submitted_by' => $this->source->id,
+            'submitted_by' => $document->submitted_by,
         ]), $at);
 
-        $this->notify($l1, $document, "{$this->source->name} resubmitted {$document->reference_number} (revision {$revisionNumber}) for your review.", $at);
+        $this->notify($l1, $document, "{$document->submitter->name} resubmitted {$document->reference_number} (revision {$revisionNumber}) for your review.", $at);
+    }
+
+    /**
+     * The assigned reviewer has opened it (story #27): New becomes Ongoing.
+     */
+    private function opened(Document $document): void
+    {
+        $document->forceFill(['review_state' => Document::REVIEW_STATE_ONGOING])->saveQuietly();
     }
 
     private function notify(User $user, Document $document, string $message, Carbon $at): void
