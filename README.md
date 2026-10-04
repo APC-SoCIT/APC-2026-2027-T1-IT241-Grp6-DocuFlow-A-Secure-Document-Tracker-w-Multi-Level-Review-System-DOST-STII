@@ -49,8 +49,14 @@ backend live in one project rather than two separate apps.
 ```
 app/
   Http/Controllers/        Backend: request handling
-    DocumentController.php   submit, resubmit, lists, document page, file access
-    ReviewController.php     Return / Forward / Endorse / Approve
+    SubmissionController.php   submit and resubmit (UC-02)
+    ReviewController.php       Return / Forward / Endorse / Approve (UC-03)
+    DocumentController.php     document lists, document page, file access
+    NotificationController.php in-system notifications
+  Services/                Backend: business logic
+    WorkflowService.php        routing between levels, reference numbers
+    TatRatingService.php       turnaround time and the 5/3/1 rating
+    NotificationService.php    creating notifications
   Models/                  Backend: User, Document, DocumentRevision, Review, Notification
 database/
   migrations/              Backend: database tables

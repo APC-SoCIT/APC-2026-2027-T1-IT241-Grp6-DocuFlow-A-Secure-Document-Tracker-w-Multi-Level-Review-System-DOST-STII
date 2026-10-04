@@ -3,20 +3,21 @@
 namespace App\Http\Controllers;
 
 use App\Models\Document;
-use App\Models\Review;
 use App\Models\User;
-use Closure;
-use Illuminate\Http\RedirectResponse;
+use App\Services\WorkflowService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
+/**
+ * Document lists, the document (review) screen, and access to uploaded files.
+ */
 class DocumentController extends Controller
 {
+    public function __construct(private WorkflowService $workflow) {}
+
     /**
      * My documents: everything the Document Source submitted, newest first.
      */
@@ -57,104 +58,8 @@ class DocumentController extends Controller
     }
 
     /**
-     * @return array<string, mixed>
-     */
-    private function listRow(Document $document): array
-    {
-        return [
-            'id' => $document->id,
-            'reference_number' => $document->reference_number,
-            'document_type' => $document->document_type,
-            'submitted_by' => $document->submitter->name,
-            'submitted_at' => $document->submitted_at,
-            'status' => $document->status,
-        ];
-    }
-
-    /**
-     * Show the submission form.
-     */
-    public function create(Request $request): Response
-    {
-        if ($request->user()->role !== User::ROLE_DOCUMENT_SOURCE) {
-            $this->deny('Only a Document Source can submit documents.');
-        }
-
-        return Inertia::render('Documents/Create', [
-            'documentTypes' => Document::TYPES,
-            // Every seeded L1, minus the submitter (Self-Review Restriction).
-            'l1Reviewers' => User::where('role', User::ROLE_L1)
-                ->whereKeyNot($request->user()->id)
-                ->orderBy('name')
-                ->get(['id', 'name']),
-        ]);
-    }
-
-    /**
-     * Submit a new document and assign it to the chosen L1.
-     */
-    public function store(Request $request): RedirectResponse
-    {
-        $submitter = $request->user();
-        if ($submitter->role !== User::ROLE_DOCUMENT_SOURCE) {
-            $this->deny('Only a Document Source can submit documents.');
-        }
-
-        $validated = $request->validate([
-            'document_type' => ['required', Rule::in(Document::TYPES)],
-            ...$this->sourceRules(),
-            'l1_reviewer_id' => [
-                'bail',
-                'required',
-                // Self-Review Restriction.
-                Rule::notIn([$submitter->id]),
-                Rule::exists('users', 'id')->where('role', User::ROLE_L1),
-            ],
-        ], [
-            ...$this->sourceMessages(),
-            'l1_reviewer_id.required' => 'Select an Immediate Supervisor (L1).',
-            'l1_reviewer_id.exists' => 'Select a valid Immediate Supervisor (L1).',
-            'l1_reviewer_id.not_in' => 'Self-Review Restriction: you cannot select yourself as reviewer.',
-        ]);
-
-        $usesLink = $validated['source_type'] === 'link';
-        $filePath = $usesLink ? null : $request->file('file')->store('documents');
-
-        $document = DB::transaction(function () use ($validated, $usesLink, $filePath, $submitter) {
-            $document = Document::create([
-                'reference_number' => Document::nextReferenceNumber($validated['document_type']),
-                'document_type' => $validated['document_type'],
-                'google_workspace_link' => $usesLink ? $validated['google_workspace_link'] : null,
-                'file_path' => $filePath,
-                'submitted_at' => now(),
-                'status' => Document::STATUS_PENDING_L1,
-                'current_review_level' => 1,
-                'submitted_by' => $submitter->id,
-                'assigned_reviewer_id' => $validated['l1_reviewer_id'],
-                'assigned_at' => now(),
-            ]);
-
-            $document->revisions()->create([
-                'revision_number' => 1,
-                'submitted_by' => $submitter->id,
-            ]);
-
-            $document->notifications()->create([
-                'user_id' => $validated['l1_reviewer_id'],
-                'message' => "{$submitter->name} submitted {$document->reference_number} for your review.",
-            ]);
-
-            return $document;
-        });
-
-        return redirect()->route('documents.show', $document)->with(
-            'success',
-            "Document {$document->reference_number} submitted. Status: {$document->statusLabel()}.",
-        );
-    }
-
-    /**
-     * Document detail view. Task 6.1 turns this into the full review screen.
+     * The document screen: preview beside details, and the review actions
+     * for the assigned reviewer.
      */
     public function show(Request $request, Document $document): Response
     {
@@ -174,7 +79,7 @@ class DocumentController extends Controller
                 'revision_number' => $document->revisions()->max('revision_number'),
             ],
             'lastReturn' => $document->status === Document::STATUS_RETURNED
-                ? $this->latestReturn($document)
+                ? $document->latestReturnSummary()
                 : null,
             'canResubmit' => $document->submitted_by === $user->id
                 && $document->status === Document::STATUS_RETURNED,
@@ -200,6 +105,21 @@ class DocumentController extends Controller
             [],
             $extension === 'pdf' ? 'inline' : 'attachment',
         );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function listRow(Document $document): array
+    {
+        return [
+            'id' => $document->id,
+            'reference_number' => $document->reference_number,
+            'document_type' => $document->document_type,
+            'submitted_by' => $document->submitter->name,
+            'submitted_at' => $document->submitted_at,
+            'status' => $document->status,
+        ];
     }
 
     /**
@@ -233,15 +153,7 @@ class DocumentController extends Controller
      */
     private function reviewPanelFor(User $user, Document $document): ?array
     {
-        $pendingStatus = [
-            1 => Document::STATUS_PENDING_L1,
-            2 => Document::STATUS_PENDING_L2,
-            3 => Document::STATUS_PENDING_L3,
-        ][$document->current_review_level] ?? null;
-
-        if ($document->assigned_reviewer_id !== $user->id
-            || $document->status !== $pendingStatus
-            || $document->submitted_by === $user->id) {
+        if (! $this->workflow->isAwaitingReviewBy($document, $user)) {
             return null;
         }
 
@@ -256,172 +168,8 @@ class DocumentController extends Controller
                 : [],
             // Endorse goes to the one seeded L3; shown so the L2 knows who.
             'l3ReviewerName' => $document->current_review_level === 2
-                ? User::where('role', User::ROLE_L3)
-                    ->whereKeyNot([$user->id, $document->submitted_by])
-                    ->value('name')
+                ? $this->workflow->divisionChiefFor($document, $user)?->name
                 : null,
-        ];
-    }
-
-    /**
-     * Show the resubmission form for a returned document.
-     */
-    public function editResubmission(Request $request, Document $document): Response
-    {
-        $this->authorizeResubmission($request, $document);
-
-        return Inertia::render('Documents/Resubmit', [
-            'document' => [
-                'id' => $document->id,
-                'reference_number' => $document->reference_number,
-                'google_workspace_link' => $document->google_workspace_link,
-                'has_file' => $document->file_path !== null,
-            ],
-            // Shown above the form so the changes can be made against them.
-            'lastReturn' => $this->latestReturn($document),
-        ]);
-    }
-
-    /**
-     * Who returned the document most recently, when, and their remarks.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function latestReturn(Document $document): ?array
-    {
-        $review = $document->reviews()->with('reviewer:id,name')
-            ->where('action', Review::ACTION_RETURN)
-            ->latest('id')
-            ->first();
-
-        return $review ? [
-            'reviewer' => $review->reviewer->name,
-            'review_level' => $review->review_level,
-            'remarks' => $review->remarks,
-            'returned_at' => $review->created_at,
-        ] : null;
-    }
-
-    /**
-     * Resubmit a returned document: same reference number, new revision,
-     * back to the same L1 as before, reset to Level 1.
-     */
-    public function resubmit(Request $request, Document $document): RedirectResponse
-    {
-        $this->authorizeResubmission($request, $document);
-        $submitter = $request->user();
-
-        $validated = $request->validate([
-            ...$this->sourceRules(),
-            'change_note' => ['required', 'string', 'max:2000'],
-        ], [
-            ...$this->sourceMessages(),
-            'change_note.required' => 'Describe what you changed in this revision.',
-        ]);
-
-        // The L1 who reviewed it before (the latest Level 1 review).
-        $l1ReviewerId = $document->reviews()
-            ->where('review_level', 1)
-            ->latest('id')
-            ->value('reviewer_id');
-        if ($l1ReviewerId === null) {
-            $this->deny("{$document->reference_number} can't be resubmitted: it has no previous L1 reviewer to go back to.");
-        }
-
-        $usesLink = $validated['source_type'] === 'link';
-        $oldFilePath = $document->file_path;
-        $newFilePath = $usesLink ? null : $request->file('file')->store('documents');
-
-        DB::transaction(function () use ($document, $validated, $usesLink, $newFilePath, $submitter, $l1ReviewerId) {
-            $document->update([
-                'google_workspace_link' => $usesLink ? $validated['google_workspace_link'] : null,
-                'file_path' => $newFilePath,
-                'resubmission_count' => $document->resubmission_count + 1,
-                'status' => Document::STATUS_PENDING_L1,
-                'current_review_level' => 1,
-                'assigned_reviewer_id' => $l1ReviewerId,
-                'assigned_at' => now(),
-            ]);
-
-            $revisionNumber = $document->revisions()->max('revision_number') + 1;
-            $document->revisions()->create([
-                'revision_number' => $revisionNumber,
-                'change_note' => $validated['change_note'],
-                'submitted_by' => $submitter->id,
-            ]);
-
-            $document->notifications()->create([
-                'user_id' => $l1ReviewerId,
-                'message' => "{$submitter->name} resubmitted {$document->reference_number} (revision {$revisionNumber}) for your review.",
-            ]);
-        });
-
-        // The replaced upload is no longer referenced by anything.
-        if ($oldFilePath !== null && $oldFilePath !== $newFilePath) {
-            Storage::delete($oldFilePath);
-        }
-
-        return redirect()->route('documents.show', $document)->with(
-            'success',
-            "Document {$document->reference_number} resubmitted. Status: {$document->fresh()->statusLabel()}.",
-        );
-    }
-
-    private function authorizeResubmission(Request $request, Document $document): void
-    {
-        if ($document->submitted_by !== $request->user()->id) {
-            $this->deny("Only the Document Source who submitted {$document->reference_number} can resubmit it.");
-        }
-
-        if ($document->status !== Document::STATUS_RETURNED) {
-            $this->deny("{$document->reference_number} can only be resubmitted after it is returned. Its status is {$document->statusLabel()}.");
-        }
-    }
-
-    /**
-     * Upload rules: a Google Workspace link OR one .pdf/.docx/.xlsx up to 10 MB.
-     *
-     * @return array<string, mixed>
-     */
-    private function sourceRules(): array
-    {
-        return [
-            'source_type' => ['required', Rule::in(['link', 'file'])],
-            'google_workspace_link' => [
-                'nullable',
-                'required_if:source_type,link',
-                'url',
-                function (string $attribute, mixed $value, Closure $fail) {
-                    if (parse_url((string) $value, PHP_URL_HOST) !== 'docs.google.com') {
-                        $fail('The link must be a Google Workspace link from docs.google.com.');
-                    }
-                },
-            ],
-            'file' => [
-                'nullable',
-                'required_if:source_type,file',
-                'file',
-                'extensions:pdf,docx,xlsx',
-                // .docx/.xlsx are zip archives; some exporters are only detected as zip.
-                'mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/zip',
-                'max:10240', // KB = 10 MB
-            ],
-        ];
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function sourceMessages(): array
-    {
-        return [
-            'google_workspace_link.required_if' => 'Enter a Google Workspace link.',
-            'file.required_if' => 'Choose a file to upload.',
-            'file.extensions' => 'The file must be a PDF, DOCX or XLSX file.',
-            'file.mimetypes' => 'The file must be a PDF, DOCX or XLSX file.',
-            'file.max' => 'The file must be 10 MB or smaller.',
-            // PHP rejected the upload before Laravel saw it (over the server's upload limit).
-            'file.uploaded' => 'The file must be 10 MB or smaller.',
         ];
     }
 }

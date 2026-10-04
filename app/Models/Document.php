@@ -57,24 +57,6 @@ class Document extends Model
     ];
 
     /**
-     * Next reference number for a type, counting up per type per year.
-     * Call inside a transaction so the lock holds until the insert.
-     */
-    public static function nextReferenceNumber(string $documentType): string
-    {
-        $prefix = self::TYPE_CODES[$documentType].'-'.now()->year.'-';
-
-        $last = self::where('reference_number', 'like', $prefix.'%')
-            ->lockForUpdate()
-            ->orderByDesc('reference_number')
-            ->value('reference_number');
-
-        $next = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;
-
-        return $prefix.str_pad((string) $next, 5, '0', STR_PAD_LEFT);
-    }
-
-    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -110,16 +92,6 @@ class Document extends Model
         return null;
     }
 
-    /**
-     * TAT in calendar days (Philippine time) from assignment until now.
-     */
-    public function daysSinceAssignment(): int
-    {
-        $assigned = $this->assigned_at->copy()->setTimezone('Asia/Manila')->startOfDay();
-
-        return (int) $assigned->diffInDays(now('Asia/Manila')->startOfDay());
-    }
-
     public function statusLabel(): string
     {
         return self::STATUS_LABELS[$this->status] ?? $this->status;
@@ -133,6 +105,26 @@ class Document extends Model
         return $this->submitted_by === $user->id
             || $this->assigned_reviewer_id === $user->id
             || $this->reviews()->where('reviewer_id', $user->id)->exists();
+    }
+
+    /**
+     * Who returned the document most recently, when, and their remarks.
+     *
+     * @return array{reviewer: string, review_level: int, remarks: ?string, returned_at: mixed}|null
+     */
+    public function latestReturnSummary(): ?array
+    {
+        $review = $this->reviews()->with('reviewer:id,name')
+            ->where('action', Review::ACTION_RETURN)
+            ->latest('id')
+            ->first();
+
+        return $review ? [
+            'reviewer' => $review->reviewer->name,
+            'review_level' => $review->review_level,
+            'remarks' => $review->remarks,
+            'returned_at' => $review->created_at,
+        ] : null;
     }
 
     public function submitter(): BelongsTo

@@ -4,8 +4,9 @@ namespace Database\Seeders;
 
 use App\Models\Document;
 use App\Models\Notification;
-use App\Models\Review;
 use App\Models\User;
+use App\Services\TatRatingService;
+use App\Services\WorkflowService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
@@ -133,7 +134,7 @@ class DemoSeeder extends Seeder
         Storage::put($path, $contents);
 
         $document = Document::create([
-            'reference_number' => Document::nextReferenceNumber($type),
+            'reference_number' => app(WorkflowService::class)->nextReferenceNumber($type),
             'document_type' => $type,
             'file_path' => $path,
             'submitted_at' => $at,
@@ -162,8 +163,8 @@ class DemoSeeder extends Seeder
     private function review(Document $document, User $reviewer, string $action, Carbon $at, string $remarks, ?User $next = null): void
     {
         $level = $document->current_review_level;
-        $tatDays = (int) $document->assigned_at->copy()->setTimezone('Asia/Manila')->startOfDay()
-            ->diffInDays($at->copy()->setTimezone('Asia/Manila')->startOfDay());
+        $tatRating = app(TatRatingService::class);
+        $tatDays = $tatRating->daysSinceAssignment($document, $at);
 
         $this->stamp($document->reviews()->create([
             'reviewer_id' => $reviewer->id,
@@ -173,7 +174,7 @@ class DemoSeeder extends Seeder
             'remarks' => $remarks,
             'action' => $action,
             'tat_days' => $tatDays,
-            'rating' => Review::ratingFor($tatDays),
+            'rating' => $tatRating->ratingFor($tatDays),
         ]), $at);
 
         $ref = $document->reference_number;

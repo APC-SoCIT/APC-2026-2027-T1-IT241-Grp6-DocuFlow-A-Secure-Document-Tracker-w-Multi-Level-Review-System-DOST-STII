@@ -3,6 +3,7 @@
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\SubmissionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -17,9 +18,9 @@ Route::get('/dashboard', function (Request $request) {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/documents', [DocumentController::class, 'index'])
         ->name('documents.index');
-    Route::get('/documents/create', [DocumentController::class, 'create'])
+    Route::get('/documents/create', [SubmissionController::class, 'create'])
         ->name('documents.create');
-    Route::post('/documents', [DocumentController::class, 'store'])
+    Route::post('/documents', [SubmissionController::class, 'store'])
         ->name('documents.store');
     Route::get('/documents/{document}', [DocumentController::class, 'show'])
         ->name('documents.show');
@@ -27,9 +28,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('documents.file');
     Route::post('/documents/{document}/reviews', [ReviewController::class, 'store'])
         ->name('reviews.store');
-    Route::get('/documents/{document}/resubmit', [DocumentController::class, 'editResubmission'])
+    Route::get('/documents/{document}/resubmit', [SubmissionController::class, 'editResubmission'])
         ->name('documents.resubmit.edit');
-    Route::post('/documents/{document}/resubmit', [DocumentController::class, 'resubmit'])
+    Route::post('/documents/{document}/resubmit', [SubmissionController::class, 'resubmit'])
         ->name('documents.resubmit');
     Route::get('/review-queue', [DocumentController::class, 'reviewQueue'])
         ->name('reviews.index');
