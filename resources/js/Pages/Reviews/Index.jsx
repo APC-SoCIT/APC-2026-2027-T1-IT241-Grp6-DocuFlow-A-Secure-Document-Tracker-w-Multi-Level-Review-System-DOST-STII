@@ -12,6 +12,7 @@ export default function Index({ documents }) {
             <div className="px-8 py-6">
                 <DocumentTable
                     documents={documents}
+                    showReviewState
                     emptyMessage="No documents are waiting for your review."
                 />
             </div>

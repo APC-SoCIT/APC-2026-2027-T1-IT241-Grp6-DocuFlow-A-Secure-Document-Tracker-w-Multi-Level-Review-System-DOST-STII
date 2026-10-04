@@ -139,6 +139,7 @@ class DemoSeeder extends Seeder
             'file_path' => $path,
             'submitted_at' => $at,
             'status' => Document::STATUS_PENDING_L1,
+            'review_state' => Document::REVIEW_STATE_NEW,
             'current_review_level' => 1,
             'submitted_by' => $this->source->id,
             'assigned_reviewer_id' => $l1->id,
@@ -182,6 +183,7 @@ class DemoSeeder extends Seeder
         if ($action === 'return' || $action === 'approve') {
             $document->update([
                 'status' => $action === 'return' ? Document::STATUS_RETURNED : Document::STATUS_APPROVED,
+                'review_state' => null,
                 'assigned_reviewer_id' => null,
                 'assigned_at' => null,
             ]);
@@ -193,6 +195,7 @@ class DemoSeeder extends Seeder
             $nextLevel = $level + 1;
             $document->update([
                 'status' => $nextLevel === 2 ? Document::STATUS_PENDING_L2 : Document::STATUS_PENDING_L3,
+                'review_state' => Document::REVIEW_STATE_NEW,
                 'current_review_level' => $nextLevel,
                 'assigned_reviewer_id' => $next->id,
                 'assigned_at' => $at,
@@ -223,6 +226,7 @@ class DemoSeeder extends Seeder
             'file_path' => $path,
             'resubmission_count' => $document->resubmission_count + 1,
             'status' => Document::STATUS_PENDING_L1,
+            'review_state' => Document::REVIEW_STATE_NEW,
             'current_review_level' => 1,
             'assigned_reviewer_id' => $l1->id,
             'assigned_at' => $at,

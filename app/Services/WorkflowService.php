@@ -101,6 +101,17 @@ class WorkflowService
     }
 
     /**
+     * Story #27: the first time the assigned reviewer opens the review
+     * screen, New becomes Ongoing.
+     */
+    public function markOpenedBy(Document $document, User $user): void
+    {
+        if ($this->isAwaitingReviewBy($document, $user) && $document->review_state === Document::REVIEW_STATE_NEW) {
+            $document->update(['review_state' => Document::REVIEW_STATE_ONGOING]);
+        }
+    }
+
+    /**
      * First submission: new reference number, revision 1, assigned to the
      * chosen L1 at Level 1.
      */
@@ -114,6 +125,7 @@ class WorkflowService
                 'file_path' => $filePath,
                 'submitted_at' => now(),
                 'status' => Document::STATUS_PENDING_L1,
+                'review_state' => Document::REVIEW_STATE_NEW,
                 'current_review_level' => 1,
                 'submitted_by' => $submitter->id,
                 'assigned_reviewer_id' => $l1ReviewerId,
@@ -147,6 +159,7 @@ class WorkflowService
                 'file_path' => $filePath,
                 'resubmission_count' => $document->resubmission_count + 1,
                 'status' => Document::STATUS_PENDING_L1,
+                'review_state' => Document::REVIEW_STATE_NEW,
                 'current_review_level' => 1,
                 'assigned_reviewer_id' => $l1ReviewerId,
                 'assigned_at' => now(),
@@ -207,6 +220,7 @@ class WorkflowService
     {
         $document->update([
             'status' => Document::STATUS_APPROVED,
+            'review_state' => null,
             'assigned_reviewer_id' => null,
             'assigned_at' => null,
         ]);
@@ -224,6 +238,7 @@ class WorkflowService
     {
         $document->update([
             'status' => Document::STATUS_RETURNED,
+            'review_state' => null,
             'assigned_reviewer_id' => null,
             'assigned_at' => null,
         ]);
@@ -243,6 +258,7 @@ class WorkflowService
 
         $document->update([
             'status' => $this->pendingStatusFor($nextLevel),
+            'review_state' => Document::REVIEW_STATE_NEW,
             'current_review_level' => $nextLevel,
             'assigned_reviewer_id' => $nextReviewer->id,
             'assigned_at' => now(),

@@ -1,6 +1,7 @@
 import DocumentHistory from '@/Components/DocumentHistory';
 import DocumentPreview from '@/Components/DocumentPreview';
 import ReviewPanel from '@/Components/ReviewPanel';
+import ReviewState from '@/Components/ReviewState';
 import StatusBadge from '@/Components/StatusBadge';
 import Tat from '@/Components/Tat';
 import { buttonVariants } from '@/Components/ui/button';
@@ -79,6 +80,11 @@ export default function Show({ document, revisions, reviews, lastReturn, canResu
                                     <Detail label="Status">
                                         <StatusBadge status={document.status} />
                                     </Detail>
+                                    {document.review_state && (
+                                        <Detail label="Review state">
+                                            <ReviewState state={document.review_state} />
+                                        </Detail>
+                                    )}
                                     <Detail label="Review level">
                                         {document.review_level ? `Level ${document.review_level}` : '—'}
                                     </Detail>

@@ -1,3 +1,4 @@
+import ReviewState from '@/Components/ReviewState';
 import StatusBadge from '@/Components/StatusBadge';
 import Tat from '@/Components/Tat';
 import { buttonVariants } from '@/Components/ui/button';
@@ -12,7 +13,7 @@ const COLUMNS = ['Reference number', 'Date Submitted', 'Status', 'Review level',
  * Submitted, status, review level, assigned reviewer, TAT with the Overdue
  * marker, plus View to open the document.
  */
-export default function DocumentTable({ documents, emptyMessage }) {
+export default function DocumentTable({ documents, emptyMessage, showReviewState = false }) {
     return (
         <Card className="overflow-hidden">
             <div className="overflow-x-auto">
@@ -47,7 +48,10 @@ export default function DocumentTable({ documents, emptyMessage }) {
                                         {formatDateTime(document.submitted_at)}
                                     </td>
                                     <td className="whitespace-nowrap px-6 py-3">
-                                        <StatusBadge status={document.status} />
+                                        <span className="inline-flex items-center gap-2">
+                                            <StatusBadge status={document.status} />
+                                            {showReviewState && <ReviewState state={document.review_state} />}
+                                        </span>
                                     </td>
                                     <td className="whitespace-nowrap px-6 py-3 text-ink">
                                         {document.review_level ? `Level ${document.review_level}` : '—'}

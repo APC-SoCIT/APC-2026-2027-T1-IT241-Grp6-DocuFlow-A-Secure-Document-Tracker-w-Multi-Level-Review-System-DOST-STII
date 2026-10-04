@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'submitted_at',
     'resubmission_count',
     'status',
+    'review_state',
     'current_review_level',
     'submitted_by',
     'assigned_reviewer_id',
@@ -28,6 +29,10 @@ class Document extends Model
     public const STATUS_PENDING_L3 = 'pending_l3_review';
     public const STATUS_RETURNED = 'returned_to_source';
     public const STATUS_APPROVED = 'approved_complete';
+
+    // Story #27: New = assigned but not opened yet; Ongoing = opened, no action yet.
+    public const REVIEW_STATE_NEW = 'new';
+    public const REVIEW_STATE_ONGOING = 'ongoing';
 
     // Labels shown in the UI (use case documents' exact wording); the badges match.
     public const STATUS_LABELS = [

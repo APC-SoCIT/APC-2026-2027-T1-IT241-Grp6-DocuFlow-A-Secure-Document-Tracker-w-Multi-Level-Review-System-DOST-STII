@@ -104,6 +104,8 @@ class DocumentController extends Controller
             $this->deny("You don't have access to {$document->reference_number}. Only its Document Source and its reviewers can open it.");
         }
 
+        $this->workflow->markOpenedBy($document, $user);
+
         $isPending = $this->workflow->pendingStatusFor($document->current_review_level) === $document->status;
 
         return Inertia::render('Documents/Show', [
@@ -114,6 +116,7 @@ class DocumentController extends Controller
                 'submitted_by' => $document->submitter->name,
                 'submitted_at' => $document->submitted_at,
                 'status' => $document->status,
+                'review_state' => $document->review_state,
                 'revision_number' => $document->revisions()->max('revision_number'),
                 'review_level' => $isPending ? $document->current_review_level : null,
                 'assigned_reviewer' => $document->assignedReviewer?->name,
@@ -163,6 +166,7 @@ class DocumentController extends Controller
             'reference_number' => $document->reference_number,
             'submitted_at' => $document->submitted_at,
             'status' => $document->status,
+            'review_state' => $document->review_state,
             'review_level' => $isPending ? $document->current_review_level : null,
             'assigned_reviewer' => $document->assignedReviewer?->name,
             'tat_days' => $this->tatRating->currentTat($document),
