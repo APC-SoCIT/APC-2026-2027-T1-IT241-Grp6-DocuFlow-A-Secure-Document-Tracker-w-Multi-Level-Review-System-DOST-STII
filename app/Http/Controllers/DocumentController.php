@@ -28,7 +28,7 @@ class DocumentController extends Controller
 
         $documents = Document::with('submitter:id,name')
             ->where('submitted_by', $request->user()->id)
-            ->latest()
+            ->latest('submitted_at')
             ->get();
 
         return Inertia::render('Documents/Index', [
@@ -66,7 +66,7 @@ class DocumentController extends Controller
             'reference_number' => $document->reference_number,
             'document_type' => $document->document_type,
             'submitted_by' => $document->submitter->name,
-            'submitted_at' => $document->created_at,
+            'submitted_at' => $document->submitted_at,
             'status' => $document->status,
         ];
     }
@@ -126,6 +126,7 @@ class DocumentController extends Controller
                 'document_type' => $validated['document_type'],
                 'google_workspace_link' => $usesLink ? $validated['google_workspace_link'] : null,
                 'file_path' => $filePath,
+                'submitted_at' => now(),
                 'status' => Document::STATUS_PENDING_L1,
                 'current_review_level' => 1,
                 'submitted_by' => $submitter->id,
@@ -175,7 +176,7 @@ class DocumentController extends Controller
                 'reference_number' => $document->reference_number,
                 'document_type' => $document->document_type,
                 'submitted_by' => $document->submitter->name,
-                'submitted_at' => $document->created_at,
+                'submitted_at' => $document->submitted_at,
                 'status' => $document->status,
                 'revision_number' => $document->revisions()->max('revision_number'),
             ],
@@ -323,6 +324,7 @@ class DocumentController extends Controller
             $document->update([
                 'google_workspace_link' => $usesLink ? $validated['google_workspace_link'] : null,
                 'file_path' => $newFilePath,
+                'resubmission_count' => $document->resubmission_count + 1,
                 'status' => Document::STATUS_PENDING_L1,
                 'current_review_level' => 1,
                 'assigned_reviewer_id' => $l1ReviewerId,

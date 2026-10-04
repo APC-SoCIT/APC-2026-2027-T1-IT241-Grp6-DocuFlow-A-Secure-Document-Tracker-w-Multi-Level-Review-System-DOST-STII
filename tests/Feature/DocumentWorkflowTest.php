@@ -115,6 +115,11 @@ class DocumentWorkflowTest extends TestCase
         foreach ([1, 2, 3] as $level) {
             $document = $this->documentAtLevel($level);
             $reference = $document->reference_number;
+            $dateSubmitted = $document->submitted_at;
+            $this->assertNotNull($dateSubmitted);
+            $this->assertSame(0, $document->resubmission_count);
+
+            $this->travel(1)->days();
 
             $this->act($this->reviewerAt($level), $document, ['action' => 'return', 'remarks' => "Fix level {$level} issues."])
                 ->assertSessionHasNoErrors();
@@ -136,6 +141,11 @@ class DocumentWorkflowTest extends TestCase
             $this->assertSame(1, $document->current_review_level);
             $this->assertSame($this->reyes->id, $document->assigned_reviewer_id, "back to the same L1 after a level {$level} return");
             $this->assertSame(2, (int) $document->revisions()->max('revision_number'));
+            $this->assertSame(1, $document->resubmission_count);
+            $this->assertTrue($dateSubmitted->equalTo($document->submitted_at), 'Date Submitted never changes on resubmission');
+            $this->assertTrue($document->revisions()->where('revision_number', 2)->value('created_at') > $dateSubmitted, 'the revision keeps its own resubmission date');
+
+            $this->travelBack();
         }
     }
 

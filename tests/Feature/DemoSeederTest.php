@@ -35,6 +35,9 @@ class DemoSeederTest extends TestCase
         // The resubmitted document is on revision 2, back with its original L1.
         $resubmitted = Document::whereHas('revisions', fn ($q) => $q->where('revision_number', 2))->firstOrFail();
         $this->assertSame('pending_l1_review', $resubmitted->status);
+        $this->assertSame(1, $resubmitted->resubmission_count);
+        $this->assertTrue($resubmitted->submitted_at->lt($resubmitted->revisions()->where('revision_number', 2)->value('created_at')));
+        $this->assertSame(0, Document::whereNull('submitted_at')->count());
         $this->assertSame(
             $resubmitted->reviews()->where('review_level', 1)->value('reviewer_id'),
             $resubmitted->assigned_reviewer_id,

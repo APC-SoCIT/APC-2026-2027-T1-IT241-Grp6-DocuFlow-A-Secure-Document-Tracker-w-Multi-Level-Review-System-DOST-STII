@@ -136,6 +136,7 @@ class DemoSeeder extends Seeder
             'reference_number' => Document::nextReferenceNumber($type),
             'document_type' => $type,
             'file_path' => $path,
+            'submitted_at' => $at,
             'status' => Document::STATUS_PENDING_L1,
             'current_review_level' => 1,
             'submitted_by' => $this->source->id,
@@ -217,6 +218,7 @@ class DemoSeeder extends Seeder
 
         $document->update([
             'file_path' => $path,
+            'resubmission_count' => $document->resubmission_count + 1,
             'status' => Document::STATUS_PENDING_L1,
             'current_review_level' => 1,
             'assigned_reviewer_id' => $l1->id,

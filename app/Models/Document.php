@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'document_type',
     'google_workspace_link',
     'file_path',
+    'submitted_at',
+    'resubmission_count',
     'status',
     'current_review_level',
     'submitted_by',
@@ -81,6 +83,8 @@ class Document extends Model
     {
         return [
             'current_review_level' => 'integer',
+            'submitted_at' => 'datetime',
+            'resubmission_count' => 'integer',
             'assigned_at' => 'datetime',
         ];
     }
