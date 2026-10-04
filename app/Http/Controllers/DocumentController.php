@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Document;
 use App\Models\User;
+use App\Services\DashboardService;
 use App\Services\TatRatingService;
 use App\Services\WorkflowService;
 use Illuminate\Database\Eloquent\Builder;
@@ -23,6 +24,7 @@ class DocumentController extends Controller
     public function __construct(
         private WorkflowService $workflow,
         private TatRatingService $tatRating,
+        private DashboardService $dashboard,
     ) {}
 
     /**
@@ -69,6 +71,8 @@ class DocumentController extends Controller
             'filters' => (object) $filters,
             'statusOptions' => Document::STATUS_LABELS,
             'canFilterByRole' => $canFilterByRole,
+            // Unaffected by the filters: totals for the whole scope.
+            'dashboard' => $this->dashboard->forUser($user),
         ]);
     }
 

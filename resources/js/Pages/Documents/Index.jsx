@@ -1,9 +1,10 @@
+import DashboardSummary from '@/Components/DashboardSummary';
 import DocumentFilters from '@/Components/DocumentFilters';
 import DocumentTable from '@/Components/DocumentTable';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, usePage } from '@inertiajs/react';
 
-export default function Index({ documents, filters, statusOptions, canFilterByRole }) {
+export default function Index({ documents, filters, statusOptions, canFilterByRole, dashboard }) {
     const { auth } = usePage().props;
     const filtering = Object.keys(filters).length > 0;
 
@@ -19,6 +20,8 @@ export default function Index({ documents, filters, statusOptions, canFilterByRo
                     statusOptions={statusOptions}
                     canFilterByRole={canFilterByRole}
                 />
+
+                <DashboardSummary dashboard={dashboard} />
 
                 <DocumentTable
                     documents={documents}
