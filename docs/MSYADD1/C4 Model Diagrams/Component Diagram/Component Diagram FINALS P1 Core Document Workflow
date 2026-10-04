@@ -1,0 +1,66 @@
+@startuml Component_Diagram_Core_Workflow
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_TOP_DOWN()
+
+title Component Diagram - DocuFlow Backend (Core Document Workflow)
+
+Container(frontend, "Web Application", "React", "Sends user requests and renders workspaces, forms, reviews, and in-system notifications.")
+
+Container_Boundary(backendBoundary, "DocuFlow Backend Application (Laravel / Apache)") {
+
+    Component(authController, "Authentication Controller", "Laravel Controller", "Handles login and logout: verifies the DOST-STII account, applies the assigned role, and starts or ends the session.")
+    Component(authMiddleware, "Auth & Access Middleware", "Laravel Middleware", "Enforces session auth, RBAC global roles, ABAC document assignment, and the self-review restriction.")
+
+    Component(docController, "Document Controller", "Laravel Controller", "Handles UC-01 (Manage Documents): Serves permitted records, statuses, search, revision history, role-based dashboard summaries, and the document link or uploaded file.")
+    Component(submissionController, "Submission Controller", "Laravel Controller", "Handles UC-02 (Submit/Resubmit Document): Processes file/link validation, link access checks, file saving, duplicate checks, and AI feedback requests.")
+    Component(reviewController, "Review Controller", "Laravel Controller", "Handles UC-03 (Review Document): Processes L1/L2/L3 reviews, returns, forwards, endorsements, approvals, and actions on AI suggestions.")
+    Component(notificationController, "Notification Controller", "Laravel Controller", "Serves in-system notifications to the frontend and marks them as read.")
+
+    Component(workflowService, "Workflow & Routing Service", "Laravel Service", "Enforces 3-level sequential routing, resubmission reset to L1, and generates reference numbers (DOCTYPE-YYYY-NNNNN).")
+    Component(tatRatingService, "TAT & Rating Service", "Laravel Service", "Starts the assigned reviewer's TAT on submission, resubmission, forward, and endorsement, and stops it when the review completes. Counts working days, excludes Philippine holidays and the time spent waiting for the Document Source, and assigns reviewer ratings.")
+
+    Component(auditService, "Audit Logging Service", "Laravel Service", "Writes immutable, server-timestamped activity records for document, review, administrative, and integration events.")
+    Component(notificationService, "Notification Service", "Laravel Service", "Creates in-system notification records and prepares workflow, review, and overdue reminder emails for delivery.")
+}
+
+ContainerDb(database, "DocuFlow Database", "MySQL", "Stores user accounts, roles, document records, uploaded file locations, assignments, revisions, remarks, audit logs, and in-system notifications.")
+ContainerDb(fileStorage, "Uploaded File Storage", "Laravel local file storage", "Stores uploaded .pdf, .docx, and .xlsx files. The database only stores their locations.")
+
+
+Rel_D(frontend, authController, "Sends login and logout requests", "HTTPS / JSON")
+Rel_D(frontend, authMiddleware, "Sends API requests", "HTTPS / JSON")
+
+Rel_D(authController, database, "Verifies accounts and roles", "Eloquent ORM")
+Rel_D(authMiddleware, database, "Reads roles and document assignments", "Eloquent ORM")
+
+Rel_D(authMiddleware, docController, "Routes requests", "Internal")
+Rel_D(authMiddleware, submissionController, "Routes requests", "Internal")
+Rel_D(authMiddleware, reviewController, "Routes requests", "Internal")
+Rel_D(authMiddleware, notificationController, "Routes requests", "Internal")
+
+Rel_D(submissionController, workflowService, "Initiates submission logic", "Internal")
+Rel_D(submissionController, tatRatingService, "Starts the first reviewer's TAT", "Internal")
+Rel_D(submissionController, auditService, "Logs submission events", "Internal")
+Rel_D(submissionController, notificationService, "Triggers submission notifications", "Internal")
+Rel_D(submissionController, fileStorage, "Saves uploaded files", "Laravel Filesystem")
+
+Rel_D(reviewController, workflowService, "Updates review routing", "Internal")
+Rel_D(reviewController, tatRatingService, "Stops TAT, calculates rating, starts the next reviewer's TAT", "Internal")
+Rel_D(reviewController, auditService, "Logs review remarks & actions", "Internal")
+Rel_D(reviewController, notificationService, "Triggers review notifications", "Internal")
+Rel_D(reviewController, database, "Reads assigned documents and AI feedback, marks the review Ongoing", "Eloquent ORM")
+Rel_D(reviewController, fileStorage, "Opens uploaded files for review", "Laravel Filesystem")
+
+Rel_D(docController, database, "Reads permitted records, statuses, and dashboard data", "Eloquent ORM")
+Rel_D(docController, fileStorage, "Opens uploaded files", "Laravel Filesystem")
+Rel_D(notificationController, notificationService, "Reads and marks notifications as read", "Internal")
+Rel_D(notificationService, auditService, "Logs notification delivery failures", "Internal")
+
+Rel_D(workflowService, database, "Writes document records & revision entries", "Eloquent ORM")
+Rel_D(tatRatingService, database, "Reads holidays and saves TAT metrics", "Eloquent ORM")
+Rel_D(auditService, database, "Writes append-only audit records", "Eloquent ORM")
+Rel_D(notificationService, database, "Writes in-system notifications", "Eloquent ORM")
+
+@enduml
