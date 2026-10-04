@@ -6,8 +6,11 @@ use App\Models\Document;
 use App\Models\User;
 use App\Services\TatRatingService;
 use App\Services\WorkflowService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -28,13 +31,44 @@ class DocumentController extends Controller
      */
     public function index(Request $request): Response
     {
+        $user = $request->user();
+        $canFilterByRole = in_array($user->role, [User::ROLE_L1, User::ROLE_L2], true);
+
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', Rule::in(array_keys(Document::STATUS_LABELS))],
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d'],
+            'role' => ['nullable', Rule::in(['submitted', 'assigned'])],
+        ]);
+        if (! $canFilterByRole) {
+            unset($filters['role']);
+        }
+        $filters = array_filter($filters, fn ($value) => $value !== null && $value !== '');
+
         $documents = Document::with('assignedReviewer:id,name')
-            ->visibleTo($request->user())
+            ->visibleTo($user)
+            ->when($filters['search'] ?? null, fn (Builder $q, string $search) => $q->where(fn (Builder $q) => $q
+                ->where('reference_number', 'like', "%{$search}%")
+                ->orWhere('document_type', 'like', "%{$search}%")))
+            ->when($filters['status'] ?? null, fn (Builder $q, string $status) => $q->where('status', $status))
+            // Date Submitted range, whole days in Philippine time.
+            ->when($filters['from'] ?? null, fn (Builder $q, string $from) => $q
+                ->where('submitted_at', '>=', Carbon::parse($from, 'Asia/Manila')->startOfDay()->utc()))
+            ->when($filters['to'] ?? null, fn (Builder $q, string $to) => $q
+                ->where('submitted_at', '<=', Carbon::parse($to, 'Asia/Manila')->endOfDay()->utc()))
+            ->when(($filters['role'] ?? null) === 'submitted', fn (Builder $q) => $q->where('submitted_by', $user->id))
+            ->when(($filters['role'] ?? null) === 'assigned', fn (Builder $q) => $q->where(fn (Builder $q) => $q
+                ->where('assigned_reviewer_id', $user->id)
+                ->orWhereHas('reviews', fn (Builder $r) => $r->where('reviewer_id', $user->id))))
             ->latest('submitted_at')
             ->get();
 
         return Inertia::render('Documents/Index', [
             'documents' => $documents->map(fn (Document $d) => $this->listRow($d)),
+            'filters' => (object) $filters,
+            'statusOptions' => Document::STATUS_LABELS,
+            'canFilterByRole' => $canFilterByRole,
         ]);
     }
 
