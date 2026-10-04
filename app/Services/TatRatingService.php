@@ -14,6 +14,34 @@ class TatRatingService
     private const TIMEZONE = 'Asia/Manila';
 
     /**
+     * Held for more than this many calendar days = overdue.
+     */
+    public const OVERDUE_AFTER_DAYS = 5;
+
+    /**
+     * TAT to show for a document: the running count while a reviewer holds
+     * it, otherwise the last reviewer's final TAT. Null before any review.
+     */
+    public function currentTat(Document $document): ?int
+    {
+        if ($document->assigned_at !== null) {
+            return $this->daysSinceAssignment($document);
+        }
+
+        return $document->reviews()->latest('id')->value('tat_days');
+    }
+
+    /**
+     * Pending with the assigned reviewer for more than 5 calendar days.
+     * Worked out on the fly; there is no scheduler.
+     */
+    public function isOverdue(Document $document): bool
+    {
+        return $document->assigned_at !== null
+            && $this->daysSinceAssignment($document) > self::OVERDUE_AFTER_DAYS;
+    }
+
+    /**
      * Calendar days from when the current reviewer received the document.
      */
     public function daysSinceAssignment(Document $document, ?Carbon $at = null): int

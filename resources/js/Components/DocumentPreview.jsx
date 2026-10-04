@@ -37,6 +37,22 @@ export default function DocumentPreview({ preview, title }) {
     const canRenderOffice =
         preview.kind === 'file' && ['docx', 'xlsx'].includes(preview.extension) && !officeFailed;
 
+    if (preview.kind === 'missing') {
+        return (
+            <Card className="flex min-h-[480px] items-center justify-center p-8">
+                <div role="alert" className="flex max-w-sm flex-col items-center text-center">
+                    <span aria-hidden="true" className="material-symbols-outlined text-[48px] text-stamp-rust">
+                        error
+                    </span>
+                    <p className="mt-3 text-sm font-medium text-ink">The uploaded file is unavailable</p>
+                    <p className="mt-1 text-sm text-ink-muted">
+                        The document's details, remarks and history below are still available.
+                    </p>
+                </div>
+            </Card>
+        );
+    }
+
     if (canRenderOffice) {
         return (
             <Card className="flex h-[75vh] min-h-[480px] flex-col overflow-hidden">

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Document;
 use App\Models\User;
+use App\Services\TatRatingService;
 use App\Services\WorkflowService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -16,7 +17,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class DocumentController extends Controller
 {
-    public function __construct(private WorkflowService $workflow) {}
+    public function __construct(
+        private WorkflowService $workflow,
+        private TatRatingService $tatRating,
+    ) {}
 
     /**
      * My documents: everything the Document Source submitted, newest first.
@@ -68,6 +72,8 @@ class DocumentController extends Controller
             $this->deny("You don't have access to {$document->reference_number}. Only its Document Source and its reviewers can open it.");
         }
 
+        $isPending = $this->workflow->pendingStatusFor($document->current_review_level) === $document->status;
+
         return Inertia::render('Documents/Show', [
             'document' => [
                 'id' => $document->id,
@@ -77,7 +83,13 @@ class DocumentController extends Controller
                 'submitted_at' => $document->submitted_at,
                 'status' => $document->status,
                 'revision_number' => $document->revisions()->max('revision_number'),
+                'review_level' => $isPending ? $document->current_review_level : null,
+                'assigned_reviewer' => $document->assignedReviewer?->name,
+                'tat_days' => $this->tatRating->currentTat($document),
+                'tat_is_final' => ! $isPending,
+                'is_overdue' => $this->tatRating->isOverdue($document),
             ],
+            ...$this->historyFor($document),
             'lastReturn' => $document->status === Document::STATUS_RETURNED
                 ? $document->latestReturnSummary()
                 : null,
@@ -123,6 +135,42 @@ class DocumentController extends Controller
     }
 
     /**
+     * Revision history and review remarks history, oldest first. Both are
+     * read-only. Each review is matched to the revision it was made on.
+     *
+     * @return array{revisions: list<array<string, mixed>>, reviews: list<array<string, mixed>>}
+     */
+    private function historyFor(Document $document): array
+    {
+        $revisions = $document->revisions()->with('submitter:id,name')->orderBy('revision_number')->get();
+        $reviews = $document->reviews()->with('reviewer:id,name')->orderBy('id')->get();
+
+        return [
+            'revisions' => $revisions->map(fn ($revision) => [
+                'id' => $revision->id,
+                'revision_number' => $revision->revision_number,
+                'submitted_at' => $revision->created_at,
+                'submitted_by' => $revision->submitter->name,
+                'change_note' => $revision->change_note,
+            ])->all(),
+            'reviews' => $reviews->map(fn ($review) => [
+                'id' => $review->id,
+                'revision_number' => $revisions
+                    ->filter(fn ($revision) => $revision->created_at <= $review->created_at)
+                    ->max('revision_number') ?? 1,
+                'review_level' => $review->review_level,
+                'reviewer' => $review->reviewer->name,
+                'action' => $review->action,
+                'reviewed_at' => $review->created_at,
+                'tat_days' => $review->tat_days,
+                'rating' => $review->rating,
+                'assessment' => $review->assessment,
+                'remarks' => $review->remarks,
+            ])->all(),
+        ];
+    }
+
+    /**
      * What the left-hand preview panel should show.
      *
      * @return array<string, mixed>
@@ -135,6 +183,11 @@ class DocumentController extends Controller
                 'embed_url' => $document->googlePreviewUrl(),
                 'open_url' => $document->google_workspace_link,
             ];
+        }
+
+        // The record, remarks and history stay usable even if the upload is gone.
+        if ($document->file_path === null || ! Storage::exists($document->file_path)) {
+            return ['kind' => 'missing'];
         }
 
         $extension = pathinfo((string) $document->file_path, PATHINFO_EXTENSION);
