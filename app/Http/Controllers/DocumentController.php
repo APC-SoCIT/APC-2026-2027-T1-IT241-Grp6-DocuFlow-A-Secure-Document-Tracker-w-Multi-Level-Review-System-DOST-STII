@@ -23,16 +23,13 @@ class DocumentController extends Controller
     ) {}
 
     /**
-     * My documents: everything the Document Source submitted, newest first.
+     * My documents, for every role: what this account submitted, or what is
+     * or was assigned to it. Newest Date Submitted first.
      */
     public function index(Request $request): Response
     {
-        if ($request->user()->role !== User::ROLE_DOCUMENT_SOURCE) {
-            $this->deny('Only a Document Source has a My documents list. Your documents to review are in your Review queue.');
-        }
-
-        $documents = Document::with('submitter:id,name')
-            ->where('submitted_by', $request->user()->id)
+        $documents = Document::with('assignedReviewer:id,name')
+            ->visibleTo($request->user())
             ->latest('submitted_at')
             ->get();
 
@@ -42,8 +39,8 @@ class DocumentController extends Controller
     }
 
     /**
-     * Review queue: documents currently assigned to this reviewer,
-     * oldest assignment first (TAT counts from assignment).
+     * Review queue: documents assigned to this reviewer and waiting for
+     * their review, oldest assignment first (TAT counts from assignment).
      */
     public function reviewQueue(Request $request): Response
     {
@@ -51,8 +48,9 @@ class DocumentController extends Controller
             $this->deny('Only reviewers have a Review queue. Your submissions are in My documents.');
         }
 
-        $documents = Document::with('submitter:id,name')
+        $documents = Document::with('assignedReviewer:id,name')
             ->where('assigned_reviewer_id', $request->user()->id)
+            ->whereIn('status', [Document::STATUS_PENDING_L1, Document::STATUS_PENDING_L2, Document::STATUS_PENDING_L3])
             ->orderBy('assigned_at')
             ->get();
 
@@ -124,13 +122,18 @@ class DocumentController extends Controller
      */
     private function listRow(Document $document): array
     {
+        $isPending = $this->workflow->pendingStatusFor($document->current_review_level) === $document->status;
+
         return [
             'id' => $document->id,
             'reference_number' => $document->reference_number,
-            'document_type' => $document->document_type,
-            'submitted_by' => $document->submitter->name,
             'submitted_at' => $document->submitted_at,
             'status' => $document->status,
+            'review_level' => $isPending ? $document->current_review_level : null,
+            'assigned_reviewer' => $document->assignedReviewer?->name,
+            'tat_days' => $this->tatRating->currentTat($document),
+            'tat_is_final' => ! $isPending,
+            'is_overdue' => $this->tatRating->isOverdue($document),
         ];
     }
 

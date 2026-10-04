@@ -1,13 +1,16 @@
 import StatusBadge from '@/Components/StatusBadge';
+import Tat from '@/Components/Tat';
 import { buttonVariants } from '@/Components/ui/button';
 import { Card } from '@/Components/ui/card';
 import { formatDateTime } from '@/lib/format';
 import { Link } from '@inertiajs/react';
 
-const COLUMNS = ['Reference number', 'Document type', 'Submitted by', 'Date Submitted', 'Status', ''];
+const COLUMNS = ['Reference number', 'Date Submitted', 'Status', 'Review level', 'Assigned reviewer', 'TAT', ''];
 
 /**
- * Plain document list in a card: no search, filters or summary (CLAUDE.md).
+ * Document list in a card. Columns per CLAUDE.md: reference number, Date
+ * Submitted, status, review level, assigned reviewer, TAT with the Overdue
+ * marker, plus View to open the document.
  */
 export default function DocumentTable({ documents, emptyMessage }) {
     return (
@@ -41,16 +44,23 @@ export default function DocumentTable({ documents, emptyMessage }) {
                                         {document.reference_number}
                                     </td>
                                     <td className="whitespace-nowrap px-6 py-3 text-ink">
-                                        {document.document_type}
-                                    </td>
-                                    <td className="whitespace-nowrap px-6 py-3 text-ink">
-                                        {document.submitted_by}
-                                    </td>
-                                    <td className="whitespace-nowrap px-6 py-3 text-ink">
                                         {formatDateTime(document.submitted_at)}
                                     </td>
                                     <td className="whitespace-nowrap px-6 py-3">
                                         <StatusBadge status={document.status} />
+                                    </td>
+                                    <td className="whitespace-nowrap px-6 py-3 text-ink">
+                                        {document.review_level ? `Level ${document.review_level}` : '—'}
+                                    </td>
+                                    <td className="whitespace-nowrap px-6 py-3 text-ink">
+                                        {document.assigned_reviewer ?? '—'}
+                                    </td>
+                                    <td className="whitespace-nowrap px-6 py-3 text-ink">
+                                        <Tat
+                                            days={document.tat_days}
+                                            isFinal={document.tat_is_final}
+                                            isOverdue={document.is_overdue}
+                                        />
                                     </td>
                                     <td className="whitespace-nowrap px-6 py-3 text-right">
                                         <Link

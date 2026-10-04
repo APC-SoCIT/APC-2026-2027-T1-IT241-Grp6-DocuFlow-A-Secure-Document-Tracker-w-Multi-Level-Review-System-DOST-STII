@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -95,6 +96,19 @@ class Document extends Model
     public function statusLabel(): string
     {
         return self::STATUS_LABELS[$this->status] ?? $this->status;
+    }
+
+    /**
+     * Documents this account submitted, or that are or were assigned to it.
+     * Same rule as isVisibleTo(): Document Source = their own submissions;
+     * L1/L2 = submitted by them or assigned to them; L3 = assigned to them.
+     */
+    public function scopeVisibleTo(Builder $query, User $user): void
+    {
+        $query->where(fn (Builder $q) => $q
+            ->where('submitted_by', $user->id)
+            ->orWhere('assigned_reviewer_id', $user->id)
+            ->orWhereHas('reviews', fn (Builder $r) => $r->where('reviewer_id', $user->id)));
     }
 
     /**

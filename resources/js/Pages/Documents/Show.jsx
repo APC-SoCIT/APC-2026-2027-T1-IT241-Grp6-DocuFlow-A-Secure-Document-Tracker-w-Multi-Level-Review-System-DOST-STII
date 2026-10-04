@@ -2,6 +2,7 @@ import DocumentHistory from '@/Components/DocumentHistory';
 import DocumentPreview from '@/Components/DocumentPreview';
 import ReviewPanel from '@/Components/ReviewPanel';
 import StatusBadge from '@/Components/StatusBadge';
+import Tat from '@/Components/Tat';
 import { buttonVariants } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
@@ -14,24 +15,6 @@ function Detail({ label, children }) {
             <dt className="text-sm text-ink-muted">{label}</dt>
             <dd className="text-right text-sm font-medium text-ink">{children}</dd>
         </div>
-    );
-}
-
-function Tat({ days, isFinal, isOverdue }) {
-    if (days === null || days === undefined) {
-        return '—';
-    }
-
-    return (
-        <span className="inline-flex flex-wrap items-center justify-end gap-2">
-            {days} {days === 1 ? 'day' : 'days'}
-            {isFinal && <span className="font-normal text-ink-muted">(final)</span>}
-            {isOverdue && (
-                <span className="rounded-full bg-stamp-rust-bg px-2.5 py-0.5 text-xs font-medium text-stamp-rust">
-                    Overdue
-                </span>
-            )}
-        </span>
     );
 }
 
@@ -102,6 +85,7 @@ export default function Show({ document, revisions, reviews, lastReturn, canResu
                                     <Detail label="Assigned reviewer">{document.assigned_reviewer ?? '—'}</Detail>
                                     <Detail label="TAT">
                                         <Tat
+                                            className="justify-end"
                                             days={document.tat_days}
                                             isFinal={document.tat_is_final}
                                             isOverdue={document.is_overdue}

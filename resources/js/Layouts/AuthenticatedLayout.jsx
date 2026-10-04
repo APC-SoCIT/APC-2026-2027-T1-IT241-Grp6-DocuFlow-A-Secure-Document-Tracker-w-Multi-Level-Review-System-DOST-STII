@@ -19,7 +19,11 @@ function navItemsFor(role) {
                   { label: 'My documents', icon: 'folder_open', route: 'documents.index' },
                   { label: 'Submit document', icon: 'upload_file', route: 'documents.create' },
               ]
-            : [{ label: 'Review queue', icon: 'fact_check', route: 'reviews.index' }];
+            : [
+                  { label: 'Review queue', icon: 'fact_check', route: 'reviews.index' },
+                  // UC-01: submitted by them, or is/was assigned to them.
+                  { label: 'My documents', icon: 'folder_open', route: 'documents.index' },
+              ];
 
     return [
         ...roleItems,
