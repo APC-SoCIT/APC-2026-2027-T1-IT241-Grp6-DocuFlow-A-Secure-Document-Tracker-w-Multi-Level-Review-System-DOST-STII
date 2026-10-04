@@ -82,7 +82,7 @@ export default function DocumentSourceField({ form, label = 'Document' }) {
                             aria-invalid={!!errors.google_workspace_link}
                         />
                         <p className="mt-1.5 text-sm text-ink-muted">
-                            A docs.google.com or drive.google.com link.
+                            A docs.google.com link (Docs, Sheets or Slides).
                         </p>
                         <FieldError message={errors.google_workspace_link} />
                     </>

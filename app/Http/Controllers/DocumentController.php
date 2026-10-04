@@ -378,9 +378,8 @@ class DocumentController extends Controller
                 'required_if:source_type,link',
                 'url',
                 function (string $attribute, mixed $value, Closure $fail) {
-                    $host = parse_url((string) $value, PHP_URL_HOST);
-                    if (! in_array($host, ['docs.google.com', 'drive.google.com'], true)) {
-                        $fail('The link must be a docs.google.com or drive.google.com link.');
+                    if (parse_url((string) $value, PHP_URL_HOST) !== 'docs.google.com') {
+                        $fail('The link must be a Google Workspace link from docs.google.com.');
                     }
                 },
             ],

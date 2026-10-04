@@ -242,6 +242,8 @@ class DocumentWorkflowTest extends TestCase
         $post(['source_type' => 'link', 'google_workspace_link' => 'https://example.com/doc'])
             ->assertSessionHasErrors('google_workspace_link');
         $post(['source_type' => 'link', 'google_workspace_link' => 'https://drive.google.com/file/d/xyz/view'])
+            ->assertSessionHasErrors('google_workspace_link');
+        $post(['source_type' => 'link', 'google_workspace_link' => 'https://docs.google.com/spreadsheets/d/xyz/edit'])
             ->assertSessionHasNoErrors();
     }
 
