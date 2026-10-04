@@ -54,7 +54,9 @@ class ReviewController extends Controller
 
         $validated = $request->validate([
             'action' => ['required', Rule::in(self::ACTIONS_BY_LEVEL[$level] ?? [])],
-            'remarks' => ['nullable', 'required_if:action,return', 'string', 'max:5000'],
+            // Return needs remarks; Forward, Endorse and Approve need an assessment and remarks.
+            'assessment' => ['nullable', 'required_unless:action,return', 'string', 'max:5000'],
+            'remarks' => ['required', 'string', 'max:5000'],
             'l2_reviewer_id' => [
                 'exclude_unless:action,forward',
                 'bail',
@@ -64,7 +66,8 @@ class ReviewController extends Controller
             ],
         ], [
             'action.in' => 'That action is not available at this review level.',
-            'remarks.required_if' => 'Add remarks so the Document Source knows what to change.',
+            'assessment.required_unless' => 'Add your assessment before you forward, endorse or approve.',
+            'remarks.required' => 'Add your remarks. When you return a document, they tell the Document Source what to change.',
             'l2_reviewer_id.required' => 'Select a Section Head (L2) to forward to.',
             'l2_reviewer_id.not_in' => 'Self-Review Restriction: you cannot forward a document to yourself or its submitter.',
             'l2_reviewer_id.exists' => 'Select a valid Section Head (L2).',
@@ -76,7 +79,8 @@ class ReviewController extends Controller
             $document->reviews()->create([
                 'reviewer_id' => $reviewer->id,
                 'review_level' => $level,
-                'remarks' => $validated['remarks'] ?? null,
+                'assessment' => $validated['assessment'] ?? null,
+                'remarks' => $validated['remarks'],
                 'action' => $validated['action'],
                 'tat_days' => $tatDays,
                 'rating' => Review::ratingFor($tatDays),

@@ -14,6 +14,7 @@ import { useForm } from '@inertiajs/react';
 export default function ReviewPanel({ documentId, review }) {
     const { data, setData, post, processing, errors, transform } = useForm({
         action: '',
+        assessment: '',
         remarks: '',
         l2_reviewer_id: '',
     });
@@ -30,24 +31,39 @@ export default function ReviewPanel({ documentId, review }) {
         <>
             <Card>
                 <CardHeader>
-                    <CardTitle>
-                        <Label htmlFor="remarks" className="mb-0 text-base">
-                            Assessment and remarks
-                        </Label>
-                    </CardTitle>
-                    <p className="mt-1 text-sm text-ink-muted">
-                        Required when returning, so the Document Source knows what to change.
-                    </p>
+                    <CardTitle>Assessment and remarks</CardTitle>
                 </CardHeader>
-                <CardContent className="pt-3">
-                    <Textarea
-                        id="remarks"
-                        rows={6}
-                        value={data.remarks}
-                        onChange={(e) => setData('remarks', e.target.value)}
-                        aria-invalid={!!errors.remarks}
-                    />
-                    <FieldError message={errors.remarks} />
+                <CardContent className="space-y-5 pt-3">
+                    <div>
+                        <Label htmlFor="assessment">Assessment</Label>
+                        <Textarea
+                            id="assessment"
+                            rows={4}
+                            value={data.assessment}
+                            onChange={(e) => setData('assessment', e.target.value)}
+                            aria-invalid={!!errors.assessment}
+                        />
+                        <p className="mt-1.5 text-sm text-ink-muted">
+                            Required to {review.level === 1 ? 'forward' : review.level === 2 ? 'endorse' : 'approve'}.
+                        </p>
+                        <FieldError message={errors.assessment} />
+                    </div>
+
+                    <div>
+                        <Label htmlFor="remarks">Remarks</Label>
+                        <Textarea
+                            id="remarks"
+                            rows={4}
+                            value={data.remarks}
+                            onChange={(e) => setData('remarks', e.target.value)}
+                            aria-invalid={!!errors.remarks}
+                        />
+                        <p className="mt-1.5 text-sm text-ink-muted">
+                            Required for every action. If you return the document, the Document
+                            Source sees these.
+                        </p>
+                        <FieldError message={errors.remarks} />
+                    </div>
                 </CardContent>
             </Card>
 

@@ -94,7 +94,7 @@ class DemoSeeder extends Seeder
             ['Scanner', 1, 18000, 18000],
             ['', '', 'Grand total', 120500],
         ]));
-        $this->review($doc, $this->reyes, 'forward', $this->daysAgo(2), null, $this->sectionHead);
+        $this->review($doc, $this->reyes, 'forward', $this->daysAgo(2), 'Figures match the purchase requests.', $this->sectionHead);
 
         // 6. Pending L1 for 6 days (overdue: acting now earns a rating of 1). Word file.
         $this->submit('Memo', $this->cruz, $this->daysAgo(6), $this->docx('Memorandum: Office Relocation', [
@@ -159,7 +159,7 @@ class DemoSeeder extends Seeder
      * Mirror ReviewController: save the review with TAT/rating, move the
      * document on and notify the next person.
      */
-    private function review(Document $document, User $reviewer, string $action, Carbon $at, ?string $remarks, ?User $next = null): void
+    private function review(Document $document, User $reviewer, string $action, Carbon $at, string $remarks, ?User $next = null): void
     {
         $level = $document->current_review_level;
         $tatDays = (int) $document->assigned_at->copy()->setTimezone('Asia/Manila')->startOfDay()
@@ -168,6 +168,8 @@ class DemoSeeder extends Seeder
         $this->stamp($document->reviews()->create([
             'reviewer_id' => $reviewer->id,
             'review_level' => $level,
+            // Forward, Endorse and Approve require an assessment; Return doesn't.
+            'assessment' => $action === 'return' ? null : 'Complete and consistent with the submission guidelines.',
             'remarks' => $remarks,
             'action' => $action,
             'tat_days' => $tatDays,

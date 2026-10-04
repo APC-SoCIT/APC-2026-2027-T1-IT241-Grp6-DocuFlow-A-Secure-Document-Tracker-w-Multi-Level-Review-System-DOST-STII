@@ -1,13 +1,14 @@
 import DocumentSourceField, { onlyChosenSource } from '@/Components/DocumentSourceField';
 import FieldError from '@/Components/FieldError';
 import { Button, buttonVariants } from '@/Components/ui/button';
-import { Card, CardContent } from '@/Components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Label } from '@/Components/ui/label';
 import { Textarea } from '@/Components/ui/textarea';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { formatDateTime } from '@/lib/format';
 import { Head, Link, useForm } from '@inertiajs/react';
 
-export default function Resubmit({ document }) {
+export default function Resubmit({ document, lastReturn }) {
     const form = useForm({
         // Start from the current source; an edited Google Doc keeps its link.
         source_type: document.has_file ? 'file' : 'link',
@@ -33,7 +34,24 @@ export default function Resubmit({ document }) {
         >
             <Head title={`Resubmit ${document.reference_number}`} />
 
-            <div className="px-8 py-6">
+            <div className="space-y-6 px-8 py-6">
+                {lastReturn && (
+                    <Card className="max-w-2xl">
+                        <CardHeader>
+                            <CardTitle>Returned by {lastReturn.reviewer}</CardTitle>
+                            <p className="mt-1 text-sm text-ink-muted">
+                                Level {lastReturn.review_level} ·{' '}
+                                {formatDateTime(lastReturn.returned_at)}
+                            </p>
+                        </CardHeader>
+                        <CardContent className="pt-3">
+                            <p className="whitespace-pre-line text-sm text-ink">
+                                {lastReturn.remarks || 'No remarks were given.'}
+                            </p>
+                        </CardContent>
+                    </Card>
+                )}
+
                 <Card className="max-w-2xl">
                     <CardContent>
                         <form onSubmit={submit} className="space-y-6" noValidate>

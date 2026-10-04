@@ -54,9 +54,14 @@ class DocumentWorkflowTest extends TestCase
         return Document::latest('id')->firstOrFail();
     }
 
+    /** Post a review action; assessment and remarks are filled in unless given. */
     private function act(User $reviewer, Document $document, array $data)
     {
-        return $this->actingAs($reviewer)->post(route('reviews.store', $document), $data);
+        return $this->actingAs($reviewer)->post(route('reviews.store', $document), [
+            'assessment' => 'Meets the requirements for this level.',
+            'remarks' => 'Reviewed.',
+            ...$data,
+        ]);
     }
 
     /** Drive a fresh document up to the given review level. */
@@ -153,8 +158,46 @@ class DocumentWorkflowTest extends TestCase
     {
         $document = $this->submit();
 
-        $this->act($this->reyes, $document, ['action' => 'return'])->assertSessionHasErrors('remarks');
+        $this->act($this->reyes, $document, ['action' => 'return', 'remarks' => ''])->assertSessionHasErrors('remarks');
         $this->assertSame(Document::STATUS_PENDING_L1, $document->fresh()->status);
+
+        // An assessment is optional when returning.
+        $this->act($this->reyes, $document, ['action' => 'return', 'assessment' => '', 'remarks' => 'Fix section 2.'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame(Document::STATUS_RETURNED, $document->fresh()->status);
+    }
+
+    public function test_forward_endorse_and_approve_require_an_assessment_and_remarks(): void
+    {
+        foreach ([1 => 'forward', 2 => 'endorse', 3 => 'approve'] as $level => $action) {
+            $document = $this->documentAtLevel($level);
+            $data = ['action' => $action, 'l2_reviewer_id' => $this->sectionHead->id];
+
+            $this->act($this->reviewerAt($level), $document, [...$data, 'assessment' => ''])
+                ->assertSessionHasErrors('assessment');
+            $this->act($this->reviewerAt($level), $document, [...$data, 'remarks' => ''])
+                ->assertSessionHasErrors('remarks');
+            $this->assertSame($level, $document->fresh()->current_review_level, "{$action} was blocked");
+
+            $this->act($this->reviewerAt($level), $document, [...$data, 'assessment' => 'Complete.', 'remarks' => 'Good to go.'])
+                ->assertSessionHasNoErrors();
+            $review = $document->reviews()->latest('id')->firstOrFail();
+            $this->assertSame(['Complete.', 'Good to go.'], [$review->assessment, $review->remarks]);
+        }
+    }
+
+    public function test_resubmit_screen_shows_the_latest_return_remarks(): void
+    {
+        $document = $this->submit();
+        $this->act($this->reyes, $document, ['action' => 'return', 'remarks' => 'Add the budget table.']);
+
+        $this->actingAs($this->source)->get(route('documents.resubmit.edit', $document))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Documents/Resubmit')
+                ->where('document.reference_number', $document->reference_number)
+                ->where('lastReturn.reviewer', $this->reyes->name)
+                ->where('lastReturn.remarks', 'Add the budget table.'));
     }
 
     public function test_forward_requires_a_real_l2(): void

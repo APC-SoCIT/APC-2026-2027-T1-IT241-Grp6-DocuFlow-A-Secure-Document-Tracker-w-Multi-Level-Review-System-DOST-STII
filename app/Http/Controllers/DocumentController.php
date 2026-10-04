@@ -163,13 +163,6 @@ class DocumentController extends Controller
             $this->deny("You don't have access to {$document->reference_number}. Only its Document Source and its reviewers can open it.");
         }
 
-        $lastReturn = $document->status === Document::STATUS_RETURNED
-            ? $document->reviews()->with('reviewer:id,name')
-                ->where('action', Review::ACTION_RETURN)
-                ->latest('id')
-                ->first()
-            : null;
-
         return Inertia::render('Documents/Show', [
             'document' => [
                 'id' => $document->id,
@@ -180,12 +173,9 @@ class DocumentController extends Controller
                 'status' => $document->status,
                 'revision_number' => $document->revisions()->max('revision_number'),
             ],
-            'lastReturn' => $lastReturn ? [
-                'reviewer' => $lastReturn->reviewer->name,
-                'review_level' => $lastReturn->review_level,
-                'remarks' => $lastReturn->remarks,
-                'returned_at' => $lastReturn->created_at,
-            ] : null,
+            'lastReturn' => $document->status === Document::STATUS_RETURNED
+                ? $this->latestReturn($document)
+                : null,
             'canResubmit' => $document->submitted_by === $user->id
                 && $document->status === Document::STATUS_RETURNED,
             'preview' => $this->previewFor($document),
@@ -287,7 +277,29 @@ class DocumentController extends Controller
                 'google_workspace_link' => $document->google_workspace_link,
                 'has_file' => $document->file_path !== null,
             ],
+            // Shown above the form so the changes can be made against them.
+            'lastReturn' => $this->latestReturn($document),
         ]);
+    }
+
+    /**
+     * Who returned the document most recently, when, and their remarks.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function latestReturn(Document $document): ?array
+    {
+        $review = $document->reviews()->with('reviewer:id,name')
+            ->where('action', Review::ACTION_RETURN)
+            ->latest('id')
+            ->first();
+
+        return $review ? [
+            'reviewer' => $review->reviewer->name,
+            'review_level' => $review->review_level,
+            'remarks' => $review->remarks,
+            'returned_at' => $review->created_at,
+        ] : null;
     }
 
     /**
