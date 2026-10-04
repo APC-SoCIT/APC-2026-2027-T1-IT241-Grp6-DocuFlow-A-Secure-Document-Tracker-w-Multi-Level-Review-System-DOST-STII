@@ -42,7 +42,7 @@ export default function Show({ document, lastReturn, canResubmit, preview, revie
                                 <Detail label="Reference number">{document.reference_number}</Detail>
                                 <Detail label="Document type">{document.document_type}</Detail>
                                 <Detail label="Submitted by">{document.submitted_by}</Detail>
-                                <Detail label="Submitted">{formatDateTime(document.submitted_at)}</Detail>
+                                <Detail label="Date Submitted">{formatDateTime(document.submitted_at)}</Detail>
                                 <Detail label="Revision">{document.revision_number}</Detail>
                                 <Detail label="Status">
                                     <StatusBadge status={document.status} />

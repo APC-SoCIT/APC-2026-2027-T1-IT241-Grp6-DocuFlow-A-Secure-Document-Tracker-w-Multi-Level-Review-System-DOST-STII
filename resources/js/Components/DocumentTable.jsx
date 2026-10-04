@@ -4,7 +4,7 @@ import { Card } from '@/Components/ui/card';
 import { formatDateTime } from '@/lib/format';
 import { Link } from '@inertiajs/react';
 
-const COLUMNS = ['Reference number', 'Document type', 'Submitted by', 'Submitted', 'Status', ''];
+const COLUMNS = ['Reference number', 'Document type', 'Submitted by', 'Date Submitted', 'Status', ''];
 
 /**
  * Plain document list in a card: no search, filters or summary (CLAUDE.md).

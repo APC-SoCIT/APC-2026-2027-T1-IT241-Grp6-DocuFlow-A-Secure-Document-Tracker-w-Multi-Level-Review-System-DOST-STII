@@ -114,7 +114,7 @@ class DocumentController extends Controller
             ...$this->sourceMessages(),
             'l1_reviewer_id.required' => 'Select an Immediate Supervisor (L1).',
             'l1_reviewer_id.exists' => 'Select a valid Immediate Supervisor (L1).',
-            'l1_reviewer_id.not_in' => 'You cannot select yourself as reviewer.',
+            'l1_reviewer_id.not_in' => 'Self-Review Restriction: you cannot select yourself as reviewer.',
         ]);
 
         $usesLink = $validated['source_type'] === 'link';
@@ -148,7 +148,7 @@ class DocumentController extends Controller
 
         return redirect()->route('documents.show', $document)->with(
             'success',
-            "Document {$document->reference_number} submitted. Status: Pending L1 review.",
+            "Document {$document->reference_number} submitted. Status: {$document->statusLabel()}.",
         );
     }
 
@@ -349,7 +349,7 @@ class DocumentController extends Controller
 
         return redirect()->route('documents.show', $document)->with(
             'success',
-            "Document {$document->reference_number} resubmitted. Status: Pending L1 review.",
+            "Document {$document->reference_number} resubmitted. Status: {$document->fresh()->statusLabel()}.",
         );
     }
 

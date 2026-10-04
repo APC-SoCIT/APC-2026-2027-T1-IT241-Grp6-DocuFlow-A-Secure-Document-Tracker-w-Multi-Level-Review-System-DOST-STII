@@ -26,13 +26,13 @@ class Document extends Model
     public const STATUS_RETURNED = 'returned_to_source';
     public const STATUS_APPROVED = 'approved_complete';
 
-    // Same sentence-case labels as the status badges, for messages.
+    // Labels shown in the UI (use case documents' exact wording); the badges match.
     public const STATUS_LABELS = [
-        self::STATUS_PENDING_L1 => 'Pending L1 review',
-        self::STATUS_PENDING_L2 => 'Pending L2 review',
-        self::STATUS_PENDING_L3 => 'Pending L3 review',
-        self::STATUS_RETURNED => 'Returned to source',
-        self::STATUS_APPROVED => 'Approved - complete',
+        self::STATUS_PENDING_L1 => 'Pending Level 1 Review',
+        self::STATUS_PENDING_L2 => 'Pending Level 2 Review',
+        self::STATUS_PENDING_L3 => 'Pending Level 3 Review',
+        self::STATUS_RETURNED => 'Returned to Source',
+        self::STATUS_APPROVED => 'Approved - Complete',
     ];
 
     public const TYPES = [

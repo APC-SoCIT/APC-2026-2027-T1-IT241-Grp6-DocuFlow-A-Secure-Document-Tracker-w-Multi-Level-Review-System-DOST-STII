@@ -177,14 +177,14 @@ class DocumentWorkflowTest extends TestCase
             'source_type' => 'link',
             'google_workspace_link' => 'https://docs.google.com/document/d/abc/edit',
             'l1_reviewer_id' => $this->source->id,
-        ])->assertSessionHasErrors(['l1_reviewer_id' => 'You cannot select yourself as reviewer.']);
+        ])->assertSessionHasErrors(['l1_reviewer_id' => 'Self-Review Restriction: you cannot select yourself as reviewer.']);
 
         // A reviewer can't review a document they submitted.
         $document = $this->submit();
         $document->update(['submitted_by' => $this->reyes->id]);
 
         $this->act($this->reyes, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->sectionHead->id])
-            ->assertSessionHas('error', "You can't review {$document->reference_number} because you submitted it.");
+            ->assertSessionHas('error', "Self-Review Restriction: you can't review {$document->reference_number} because you submitted it.");
         $this->assertSame(Document::STATUS_PENDING_L1, $document->fresh()->status);
     }
 
@@ -207,7 +207,7 @@ class DocumentWorkflowTest extends TestCase
             'source_type' => 'link',
             'google_workspace_link' => 'https://docs.google.com/document/d/x/edit',
             'change_note' => 'x',
-        ])->assertSessionHas('error', "{$document->reference_number} can only be resubmitted after it is returned. Its status is Pending L1 review.");
+        ])->assertSessionHas('error', "{$document->reference_number} can only be resubmitted after it is returned. Its status is Pending Level 1 Review.");
 
         $this->assertSame(1, $document->revisions()->count());
     }

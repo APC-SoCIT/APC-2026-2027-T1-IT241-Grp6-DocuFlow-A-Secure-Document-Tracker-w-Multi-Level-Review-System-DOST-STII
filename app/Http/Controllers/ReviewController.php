@@ -41,7 +41,7 @@ class ReviewController extends Controller
 
         // Self-Review Restriction: never review your own submission.
         if ($document->submitted_by === $reviewer->id) {
-            $this->deny("You can't review {$document->reference_number} because you submitted it.");
+            $this->deny("Self-Review Restriction: you can't review {$document->reference_number} because you submitted it.");
         }
 
         if ($document->status !== (self::PENDING_STATUS_BY_LEVEL[$level] ?? null)) {
@@ -66,7 +66,7 @@ class ReviewController extends Controller
             'action.in' => 'That action is not available at this review level.',
             'remarks.required_if' => 'Add remarks so the Document Source knows what to change.',
             'l2_reviewer_id.required' => 'Select a Section Head (L2) to forward to.',
-            'l2_reviewer_id.not_in' => 'You cannot forward a document to yourself or its submitter.',
+            'l2_reviewer_id.not_in' => 'Self-Review Restriction: you cannot forward a document to yourself or its submitter.',
             'l2_reviewer_id.exists' => 'Select a valid Section Head (L2).',
         ]);
 
