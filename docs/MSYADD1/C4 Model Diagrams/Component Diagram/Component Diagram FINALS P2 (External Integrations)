@@ -1,0 +1,52 @@
+@startuml Component_Diagram_Integrations
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_TOP_DOWN()
+skinparam nodesep 40
+skinparam ranksep 70
+
+title Component Diagram - DocuFlow Backend (External Integrations)
+
+Container_Boundary(backendBoundary, "DocuFlow Backend Application (Laravel / Apache)") {
+
+    Component(submissionController, "Submission Controller", "Laravel Controller", "Handles UC-02 (Submit/Resubmit Document): Processes file/link validation, link access checks, file saving, duplicate checks, and AI feedback requests.")
+    Component(reviewController, "Review Controller", "Laravel Controller", "Handles UC-03 (Review Document): Processes L1/L2/L3 reviews, returns, forwards, endorsements, approvals, and actions on AI suggestions.")
+    Component(webhookController, "Workspace Webhook Controller", "Laravel Controller", "Listens for Google Workspace API push notifications to log live document edit events during review.")
+
+    Component(aiClient, "Local AI Client Service", "Laravel HTTP Client", "Communicates with local Ollama API for duplicate submission detection and preliminary feedback, using Active AI Knowledge as reference.")
+    Component(googleWorkspaceClient, "Google Workspace Client Service", "Laravel HTTP Client", "Checks that submitted Google Workspace links can be accessed with the required sharing settings.")
+    Component(aiKnowledgeService, "AI Knowledge Service", "Laravel Service", "Records Accept/Modify/Disregard/Flag actions on AI suggestions, creates Pending AI Knowledge from remarks marked by reviewers, and supplies Active AI Knowledge to the AI client.")
+
+    Component(notificationService, "Notification Service", "Laravel Service", "Creates in-system notification records and prepares workflow, review, and overdue reminder emails for delivery.")
+    Component(auditService, "Audit Logging Service", "Laravel Service", "Writes immutable, server-timestamped activity records for document, review, administrative, and integration events.")
+}
+
+ContainerDb(database, "DocuFlow Database", "MySQL", "Stores AI knowledge, audit logs, and in-system notifications.")
+System_Ext(aiAssistant, "AI Assistant", "Local Ollama instance providing preliminary review feedback and duplicate detection.")
+System_Ext(googleWorkspace, "Google Workspace", "Hosts live files, answers link access checks, and sends edit webhook notifications via Workspace APIs.")
+System_Ext(emailService, "Email", "SMTP mail server delivering automated workflow and overdue notifications.")
+
+Lay_R(submissionController, notificationService)
+Lay_R(aiClient, reviewController)
+Lay_R(reviewController, googleWorkspaceClient)
+Lay_R(googleWorkspaceClient, webhookController)
+Lay_D(googleWorkspaceClient, auditService)
+
+Rel_D(submissionController, aiClient, "Requests AI checks", "Internal")
+Rel_D(submissionController, googleWorkspaceClient, "Checks link access", "Internal")
+Rel_D(reviewController, aiKnowledgeService, "Records AI suggestion actions and marked remarks", "Internal")
+Rel_D(aiClient, aiKnowledgeService, "Gets Active AI Knowledge", "Internal")
+Rel_D(webhookController, auditService, "Logs live edit timestamps", "Internal")
+Rel_D(notificationService, auditService, "Logs delivery failures", "Internal")
+
+Rel_L(aiClient, aiAssistant, "Sends text for duplicate check & feedback", "HTTP / Localhost")
+Rel_R(googleWorkspaceClient, googleWorkspace, "Checks link access", "Workspace APIs")
+Rel_U(googleWorkspace, webhookController, "Pushes live document edit events", "HTTPS Webhook")
+Rel_R(notificationService, emailService, "Sends email notifications", "SMTP")
+
+Rel_D(aiKnowledgeService, database, "Reads and writes AI knowledge", "Eloquent ORM")
+Rel_D(auditService, database, "Writes audit records", "Eloquent ORM")
+Rel_D(notificationService, database, "Writes in-system notifications", "Eloquent ORM")
+
+@enduml
