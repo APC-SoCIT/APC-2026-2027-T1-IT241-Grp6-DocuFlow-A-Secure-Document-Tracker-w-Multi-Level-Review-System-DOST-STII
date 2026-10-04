@@ -241,6 +241,44 @@ class DocumentWorkflowTest extends TestCase
         $this->assertSame(Document::STATUS_PENDING_L1, $document->fresh()->status);
     }
 
+    public function test_l1_and_l2_can_submit_but_the_l3_cannot(): void
+    {
+        $otherL2 = User::where('email', 'l2.navarro@docuflow.test')->firstOrFail();
+        $store = fn (User $submitter, User $l1) => $this->actingAs($submitter)->post(route('documents.store'), [
+            'document_type' => 'Report',
+            'source_type' => 'link',
+            'google_workspace_link' => 'https://docs.google.com/document/d/l1l2/edit',
+            'l1_reviewer_id' => $l1->id,
+        ]);
+
+        // An L1 submits to the other L1, never to themself.
+        $this->actingAs($this->reyes)->get(route('documents.create'))->assertOk();
+        $store($this->reyes, $this->reyes)->assertSessionHasErrors('l1_reviewer_id');
+        $store($this->reyes, $this->cruz)->assertSessionHasNoErrors();
+        $byReyes = Document::latest('id')->firstOrFail();
+        $this->assertSame($this->reyes->id, $byReyes->submitted_by);
+        $this->assertSame($this->cruz->id, $byReyes->assigned_reviewer_id);
+
+        // An L2's own document can't be forwarded to them, only to the other L2.
+        $store($this->sectionHead, $this->reyes)->assertSessionHasNoErrors();
+        $byCarlo = Document::latest('id')->firstOrFail();
+        $this->actingAs($this->reyes)->get(route('documents.show', $byCarlo))
+            ->assertInertia(fn ($page) => $page
+                ->has('review.l2Reviewers', 1)
+                ->where('review.l2Reviewers.0.id', $otherL2->id));
+        $this->act($this->reyes, $byCarlo, ['action' => 'forward', 'l2_reviewer_id' => $this->sectionHead->id])
+            ->assertSessionHasErrors('l2_reviewer_id');
+        $this->act($this->reyes, $byCarlo, ['action' => 'forward', 'l2_reviewer_id' => $otherL2->id])
+            ->assertSessionHasNoErrors();
+        $this->assertSame($otherL2->id, $byCarlo->fresh()->assigned_reviewer_id);
+
+        // The L3 can't submit.
+        $this->actingAs($this->divisionChief)->get(route('documents.create'))
+            ->assertRedirect(route('reviews.index'))
+            ->assertSessionHas('error', 'Only a Document Source, Immediate Supervisor (L1) or Section Head (L2) can submit documents.');
+        $store($this->divisionChief, $this->reyes)->assertSessionHas('error');
+    }
+
     public function test_only_the_assigned_reviewer_can_act(): void
     {
         $document = $this->submit();

@@ -22,6 +22,9 @@ class DatabaseSeeder extends Seeder
             ['name' => 'Jose Reyes', 'email' => 'l1.reyes@docuflow.test', 'role' => User::ROLE_L1],
             ['name' => 'Ana Cruz', 'email' => 'l1.cruz@docuflow.test', 'role' => User::ROLE_L1],
             ['name' => 'Carlo Mendoza', 'email' => 'l2@docuflow.test', 'role' => User::ROLE_L2],
+            // A second L2, so a document an L2 submits can still be forwarded
+            // (the Self-Review Restriction keeps it away from its submitter).
+            ['name' => 'Teresa Navarro', 'email' => 'l2.navarro@docuflow.test', 'role' => User::ROLE_L2],
             ['name' => 'Liza Ramos', 'email' => 'l3@docuflow.test', 'role' => User::ROLE_L3],
         ];
 

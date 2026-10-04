@@ -18,6 +18,8 @@ use Inertia\Response;
  */
 class SubmissionController extends Controller
 {
+    private const CANNOT_SUBMIT = 'Only a Document Source, Immediate Supervisor (L1) or Section Head (L2) can submit documents.';
+
     public function __construct(private WorkflowService $workflow) {}
 
     /**
@@ -25,8 +27,8 @@ class SubmissionController extends Controller
      */
     public function create(Request $request): Response
     {
-        if ($request->user()->role !== User::ROLE_DOCUMENT_SOURCE) {
-            $this->deny('Only a Document Source can submit documents.');
+        if (! $request->user()->canSubmitDocuments()) {
+            $this->deny(self::CANNOT_SUBMIT);
         }
 
         return Inertia::render('Documents/Create', [
@@ -45,8 +47,8 @@ class SubmissionController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $submitter = $request->user();
-        if ($submitter->role !== User::ROLE_DOCUMENT_SOURCE) {
-            $this->deny('Only a Document Source can submit documents.');
+        if (! $submitter->canSubmitDocuments()) {
+            $this->deny(self::CANNOT_SUBMIT);
         }
 
         $validated = $request->validate([

@@ -37,6 +37,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Document Sources, L1 and L2 reviewers can submit documents; the L3 can't.
+     */
+    public function canSubmitDocuments(): bool
+    {
+        return in_array($this->role, [self::ROLE_DOCUMENT_SOURCE, self::ROLE_L1, self::ROLE_L2], true);
+    }
+
+    /**
      * Where this account lands after login: My documents or Review queue.
      */
     public function homeRoute(): string

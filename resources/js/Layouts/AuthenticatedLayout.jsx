@@ -13,22 +13,17 @@ const ROLE_LABELS = {
 };
 
 function navItemsFor(role) {
-    const roleItems =
-        role === 'document_source'
-            ? [
-                  { label: 'My documents', icon: 'folder_open', route: 'documents.index' },
-                  { label: 'Submit document', icon: 'upload_file', route: 'documents.create' },
-              ]
-            : [
-                  { label: 'Review queue', icon: 'fact_check', route: 'reviews.index' },
-                  // UC-01: submitted by them, or is/was assigned to them.
-                  { label: 'My documents', icon: 'folder_open', route: 'documents.index' },
-              ];
+    const isReviewer = role !== 'document_source';
+    // Document Source, L1 and L2 can submit; the L3 can't.
+    const canSubmit = role !== 'l3';
 
     return [
-        ...roleItems,
+        isReviewer && { label: 'Review queue', icon: 'fact_check', route: 'reviews.index' },
+        // UC-01: submitted by them, or is/was assigned to them.
+        { label: 'My documents', icon: 'folder_open', route: 'documents.index' },
+        canSubmit && { label: 'Submit document', icon: 'upload_file', route: 'documents.create' },
         { label: 'Notifications', icon: 'notifications', route: 'notifications.index' },
-    ];
+    ].filter(Boolean);
 }
 
 function readSidebarExpanded() {
