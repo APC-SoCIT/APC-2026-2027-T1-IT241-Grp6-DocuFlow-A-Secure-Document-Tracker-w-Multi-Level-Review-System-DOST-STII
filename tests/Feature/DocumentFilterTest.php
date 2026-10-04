@@ -17,11 +17,11 @@ class DocumentFilterTest extends TestCase
 
     private User $source;
 
-    private User $reyes;
+    private User $l1;
 
-    private User $cruz;
+    private User $l1b;
 
-    private User $sectionHead;
+    private User $l2;
 
     protected function setUp(): void
     {
@@ -30,9 +30,9 @@ class DocumentFilterTest extends TestCase
         $this->seed();
 
         $this->source = User::where('email', 'source@docuflow.test')->firstOrFail();
-        $this->reyes = User::where('email', 'l1.reyes@docuflow.test')->firstOrFail();
-        $this->cruz = User::where('email', 'l1.cruz@docuflow.test')->firstOrFail();
-        $this->sectionHead = User::where('email', 'l2@docuflow.test')->firstOrFail();
+        $this->l1 = User::where('email', 'l1@docuflow.test')->firstOrFail();
+        $this->l1b = User::where('email', 'l1b@docuflow.test')->firstOrFail();
+        $this->l2 = User::where('email', 'l2@docuflow.test')->firstOrFail();
     }
 
     private function submit(string $type, ?User $submitter = null, ?User $l1 = null): Document
@@ -42,7 +42,7 @@ class DocumentFilterTest extends TestCase
             $type,
             'https://docs.google.com/document/d/x/edit',
             null,
-            ($l1 ?? $this->reyes)->id,
+            ($l1 ?? $this->l1)->id,
         );
     }
 
@@ -76,7 +76,7 @@ class DocumentFilterTest extends TestCase
         $old = $this->submit('Memo');
         $old->update(['submitted_at' => now()->subDays(10)]);
         $returned = $this->submit('Report');
-        $this->actingAs($this->reyes)->post(route('reviews.store', $returned), [
+        $this->actingAs($this->l1)->post(route('reviews.store', $returned), [
             'action' => 'return', 'remarks' => 'Fix it.',
         ])->assertSessionHasNoErrors();
         $recent = $this->submit('Other');
@@ -102,18 +102,18 @@ class DocumentFilterTest extends TestCase
 
     public function test_role_filter_for_l1_and_l2(): void
     {
-        $byReyes = $this->submit('Memo', $this->reyes, $this->cruz);   // Reyes submitted it
-        $toReyes = $this->submit('Report');                             // assigned to Reyes
+        $bySofia = $this->submit('Memo', $this->l1, $this->l1b);   // Sofia submitted it
+        $toSofia = $this->submit('Report');                             // assigned to Sofia
 
-        $this->assertSame([$byReyes->reference_number], $this->refs($this->reyes, ['role' => 'submitted']));
-        $this->assertSame([$toReyes->reference_number], $this->refs($this->reyes, ['role' => 'assigned']));
+        $this->assertSame([$bySofia->reference_number], $this->refs($this->l1, ['role' => 'submitted']));
+        $this->assertSame([$toSofia->reference_number], $this->refs($this->l1, ['role' => 'assigned']));
         $this->assertEqualsCanonicalizing(
-            [$byReyes->reference_number, $toReyes->reference_number],
-            $this->refs($this->reyes),
+            [$bySofia->reference_number, $toSofia->reference_number],
+            $this->refs($this->l1),
         );
 
         // Only L1 and L2 get the role filter; others ignore it.
-        $this->actingAs($this->reyes)->get(route('documents.index'))
+        $this->actingAs($this->l1)->get(route('documents.index'))
             ->assertInertia(fn ($page) => $page->where('canFilterByRole', true));
         $this->actingAs($this->source)->get(route('documents.index', ['role' => 'assigned']))
             ->assertInertia(fn ($page) => $page->where('canFilterByRole', false)->has('documents', 1));

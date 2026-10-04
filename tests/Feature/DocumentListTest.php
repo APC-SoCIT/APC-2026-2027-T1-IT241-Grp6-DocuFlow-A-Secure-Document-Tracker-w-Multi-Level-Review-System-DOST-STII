@@ -17,13 +17,13 @@ class DocumentListTest extends TestCase
 
     private User $source;
 
-    private User $reyes;
+    private User $l1;
 
-    private User $cruz;
+    private User $l1b;
 
-    private User $sectionHead;
+    private User $l2;
 
-    private User $divisionChief;
+    private User $l3;
 
     protected function setUp(): void
     {
@@ -32,10 +32,10 @@ class DocumentListTest extends TestCase
         $this->seed();
 
         $this->source = User::where('email', 'source@docuflow.test')->firstOrFail();
-        $this->reyes = User::where('email', 'l1.reyes@docuflow.test')->firstOrFail();
-        $this->cruz = User::where('email', 'l1.cruz@docuflow.test')->firstOrFail();
-        $this->sectionHead = User::where('email', 'l2@docuflow.test')->firstOrFail();
-        $this->divisionChief = User::where('email', 'l3@docuflow.test')->firstOrFail();
+        $this->l1 = User::where('email', 'l1@docuflow.test')->firstOrFail();
+        $this->l1b = User::where('email', 'l1b@docuflow.test')->firstOrFail();
+        $this->l2 = User::where('email', 'l2@docuflow.test')->firstOrFail();
+        $this->l3 = User::where('email', 'l3@docuflow.test')->firstOrFail();
     }
 
     private function submit(User $submitter, User $l1): Document
@@ -69,41 +69,41 @@ class DocumentListTest extends TestCase
     {
         $otherSource = User::factory()->create(['role' => User::ROLE_DOCUMENT_SOURCE]);
 
-        $toReyes = $this->submit($this->source, $this->reyes);          // stays with Reyes
-        $toCruz = $this->submit($this->source, $this->cruz);            // Cruz only
-        $forwarded = $this->submit($this->source, $this->reyes);        // Reyes -> Carlo -> Liza
-        $someoneElses = $this->submit($otherSource, $this->cruz);       // another Document Source
-        $byReyes = $this->submit($this->reyes, $this->cruz);            // an L1 as submitter
+        $toSofia = $this->submit($this->source, $this->l1);          // stays with Sofia
+        $toCarlo = $this->submit($this->source, $this->l1b);            // Carlo only
+        $forwarded = $this->submit($this->source, $this->l1);        // Sofia -> Nairb -> RomeoJr
+        $someoneElses = $this->submit($otherSource, $this->l1b);       // another Document Source
+        $bySofia = $this->submit($this->l1, $this->l1b);            // an L1 as submitter
 
-        $this->act($this->reyes, $forwarded, ['action' => 'forward', 'l2_reviewer_id' => $this->sectionHead->id]);
-        $this->act($this->sectionHead, $forwarded, ['action' => 'endorse']);
+        $this->act($this->l1, $forwarded, ['action' => 'forward', 'l2_reviewer_id' => $this->l2->id]);
+        $this->act($this->l2, $forwarded, ['action' => 'endorse']);
 
         // Document Source: only what they submitted.
         $this->assertEqualsCanonicalizing(
-            [$toReyes->reference_number, $toCruz->reference_number, $forwarded->reference_number],
+            [$toSofia->reference_number, $toCarlo->reference_number, $forwarded->reference_number],
             $this->listFor($this->source),
         );
 
         // L1: submitted by them, assigned to them now, or handled by them before.
         $this->assertEqualsCanonicalizing(
-            [$toReyes->reference_number, $forwarded->reference_number, $byReyes->reference_number],
-            $this->listFor($this->reyes),
+            [$toSofia->reference_number, $forwarded->reference_number, $bySofia->reference_number],
+            $this->listFor($this->l1),
         );
         $this->assertEqualsCanonicalizing(
-            [$toCruz->reference_number, $someoneElses->reference_number, $byReyes->reference_number],
-            $this->listFor($this->cruz),
+            [$toCarlo->reference_number, $someoneElses->reference_number, $bySofia->reference_number],
+            $this->listFor($this->l1b),
         );
 
         // L2: keeps a document after endorsing it on.
-        $this->assertSame([$forwarded->reference_number], $this->listFor($this->sectionHead));
+        $this->assertSame([$forwarded->reference_number], $this->listFor($this->l2));
 
         // L3: only what is or was assigned to them.
-        $this->assertSame([$forwarded->reference_number], $this->listFor($this->divisionChief));
+        $this->assertSame([$forwarded->reference_number], $this->listFor($this->l3));
     }
 
     public function test_list_rows_have_the_required_columns(): void
     {
-        $document = $this->submit($this->source, $this->reyes);
+        $document = $this->submit($this->source, $this->l1);
         $this->travel(6)->days();
 
         $this->actingAs($this->source)->get(route('documents.index'))
@@ -113,7 +113,7 @@ class DocumentListTest extends TestCase
                 ->has('documents.0.submitted_at')
                 ->where('documents.0.status', Document::STATUS_PENDING_L1)
                 ->where('documents.0.review_level', 1)
-                ->where('documents.0.assigned_reviewer', $this->reyes->name)
+                ->where('documents.0.assigned_reviewer', $this->l1->name)
                 ->where('documents.0.tat_days', 6)
                 ->where('documents.0.tat_is_final', false)
                 ->where('documents.0.is_overdue', true));
@@ -121,14 +121,14 @@ class DocumentListTest extends TestCase
 
     public function test_review_queue_holds_only_documents_waiting_for_this_reviewer(): void
     {
-        $waiting = $this->submit($this->source, $this->reyes);
-        $forwarded = $this->submit($this->source, $this->reyes);
-        $this->act($this->reyes, $forwarded, ['action' => 'forward', 'l2_reviewer_id' => $this->sectionHead->id]);
+        $waiting = $this->submit($this->source, $this->l1);
+        $forwarded = $this->submit($this->source, $this->l1);
+        $this->act($this->l1, $forwarded, ['action' => 'forward', 'l2_reviewer_id' => $this->l2->id]);
 
-        // Forwarded: gone from Reyes's queue, still in his list.
-        $this->assertSame([$waiting->reference_number], $this->listFor($this->reyes, 'reviews.index'));
-        $this->assertContains($forwarded->reference_number, $this->listFor($this->reyes));
-        $this->assertSame([$forwarded->reference_number], $this->listFor($this->sectionHead, 'reviews.index'));
+        // Forwarded: gone from Sofia's queue, still in his list.
+        $this->assertSame([$waiting->reference_number], $this->listFor($this->l1, 'reviews.index'));
+        $this->assertContains($forwarded->reference_number, $this->listFor($this->l1));
+        $this->assertSame([$forwarded->reference_number], $this->listFor($this->l2, 'reviews.index'));
 
         // A Document Source has no review queue.
         $this->actingAs($this->source)->get(route('reviews.index'))

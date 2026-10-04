@@ -16,9 +16,9 @@ class ReviewStateTest extends TestCase
 
     private User $source;
 
-    private User $reyes;
+    private User $l1;
 
-    private User $sectionHead;
+    private User $l2;
 
     protected function setUp(): void
     {
@@ -27,8 +27,8 @@ class ReviewStateTest extends TestCase
         $this->seed();
 
         $this->source = User::where('email', 'source@docuflow.test')->firstOrFail();
-        $this->reyes = User::where('email', 'l1.reyes@docuflow.test')->firstOrFail();
-        $this->sectionHead = User::where('email', 'l2@docuflow.test')->firstOrFail();
+        $this->l1 = User::where('email', 'l1@docuflow.test')->firstOrFail();
+        $this->l2 = User::where('email', 'l2@docuflow.test')->firstOrFail();
     }
 
     private function state(Document $document): ?string
@@ -51,7 +51,7 @@ class ReviewStateTest extends TestCase
             'document_type' => 'Memo',
             'source_type' => 'link',
             'google_workspace_link' => 'https://docs.google.com/document/d/x/edit',
-            'l1_reviewer_id' => $this->reyes->id,
+            'l1_reviewer_id' => $this->l1->id,
         ]);
         $document = Document::latest('id')->firstOrFail();
         $this->assertSame('new', $this->state($document));
@@ -61,23 +61,23 @@ class ReviewStateTest extends TestCase
         $this->assertSame('new', $this->state($document));
 
         // The queue shows New.
-        $this->actingAs($this->reyes)->get(route('reviews.index'))
+        $this->actingAs($this->l1)->get(route('reviews.index'))
             ->assertInertia(fn ($page) => $page->where('documents.0.review_state', 'new'));
 
         // The assigned reviewer opens it: Ongoing, and it stays Ongoing.
-        $this->actingAs($this->reyes)->get(route('documents.show', $document));
+        $this->actingAs($this->l1)->get(route('documents.show', $document));
         $this->assertSame('ongoing', $this->state($document));
-        $this->actingAs($this->reyes)->get(route('documents.show', $document));
+        $this->actingAs($this->l1)->get(route('documents.show', $document));
         $this->assertSame('ongoing', $this->state($document));
 
         // Forward: New again for the L2, Ongoing when they open it.
-        $this->act($this->reyes, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->sectionHead->id]);
+        $this->act($this->l1, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->l2->id]);
         $this->assertSame('new', $this->state($document));
-        $this->actingAs($this->sectionHead)->get(route('documents.show', $document));
+        $this->actingAs($this->l2)->get(route('documents.show', $document));
         $this->assertSame('ongoing', $this->state($document));
 
         // Endorse: New for the L3.
-        $this->act($this->sectionHead, $document, ['action' => 'endorse']);
+        $this->act($this->l2, $document, ['action' => 'endorse']);
         $this->assertSame('new', $this->state($document));
 
         // Approve: no reviewer holds it any more.
@@ -92,11 +92,11 @@ class ReviewStateTest extends TestCase
             'document_type' => 'Memo',
             'source_type' => 'link',
             'google_workspace_link' => 'https://docs.google.com/document/d/x/edit',
-            'l1_reviewer_id' => $this->reyes->id,
+            'l1_reviewer_id' => $this->l1->id,
         ]);
         $document = Document::latest('id')->firstOrFail();
-        $this->actingAs($this->reyes)->get(route('documents.show', $document));
-        $this->act($this->reyes, $document, ['action' => 'return', 'remarks' => 'Fix it.']);
+        $this->actingAs($this->l1)->get(route('documents.show', $document));
+        $this->act($this->l1, $document, ['action' => 'return', 'remarks' => 'Fix it.']);
         $this->assertNull($this->state($document));
 
         $this->actingAs($this->source)->post(route('documents.resubmit', $document), [

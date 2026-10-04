@@ -19,13 +19,13 @@ class DocumentWorkflowTest extends TestCase
 
     private User $source;
 
-    private User $reyes;
+    private User $l1;
 
-    private User $cruz;
+    private User $l1b;
 
-    private User $sectionHead;
+    private User $l2;
 
-    private User $divisionChief;
+    private User $l3;
 
     protected function setUp(): void
     {
@@ -35,10 +35,10 @@ class DocumentWorkflowTest extends TestCase
         Storage::fake();
 
         $this->source = User::where('email', 'source@docuflow.test')->firstOrFail();
-        $this->reyes = User::where('email', 'l1.reyes@docuflow.test')->firstOrFail();
-        $this->cruz = User::where('email', 'l1.cruz@docuflow.test')->firstOrFail();
-        $this->sectionHead = User::where('email', 'l2@docuflow.test')->firstOrFail();
-        $this->divisionChief = User::where('email', 'l3@docuflow.test')->firstOrFail();
+        $this->l1 = User::where('email', 'l1@docuflow.test')->firstOrFail();
+        $this->l1b = User::where('email', 'l1b@docuflow.test')->firstOrFail();
+        $this->l2 = User::where('email', 'l2@docuflow.test')->firstOrFail();
+        $this->l3 = User::where('email', 'l3@docuflow.test')->firstOrFail();
     }
 
     private function submit(array $overrides = []): Document
@@ -47,7 +47,7 @@ class DocumentWorkflowTest extends TestCase
             'document_type' => 'Memo',
             'source_type' => 'link',
             'google_workspace_link' => 'https://docs.google.com/document/d/abc123/edit',
-            'l1_reviewer_id' => $this->reyes->id,
+            'l1_reviewer_id' => $this->l1->id,
             ...$overrides,
         ])->assertSessionHasNoErrors();
 
@@ -70,10 +70,10 @@ class DocumentWorkflowTest extends TestCase
         $document = $this->submit();
 
         if ($level >= 2) {
-            $this->act($this->reyes, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->sectionHead->id]);
+            $this->act($this->l1, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->l2->id]);
         }
         if ($level >= 3) {
-            $this->act($this->sectionHead, $document, ['action' => 'endorse']);
+            $this->act($this->l2, $document, ['action' => 'endorse']);
         }
 
         return $document->fresh();
@@ -81,7 +81,7 @@ class DocumentWorkflowTest extends TestCase
 
     private function reviewerAt(int $level): User
     {
-        return [1 => $this->reyes, 2 => $this->sectionHead, 3 => $this->divisionChief][$level];
+        return [1 => $this->l1, 2 => $this->l2, 3 => $this->l3][$level];
     }
 
     public function test_full_path_submit_forward_endorse_approve(): void
@@ -90,22 +90,22 @@ class DocumentWorkflowTest extends TestCase
 
         $this->assertMatchesRegularExpression('/^MEMO-\d{4}-00001$/', $document->reference_number);
         $this->assertSame(Document::STATUS_PENDING_L1, $document->status);
-        $this->assertSame($this->reyes->id, $document->assigned_reviewer_id);
+        $this->assertSame($this->l1->id, $document->assigned_reviewer_id);
         $this->assertSame(1, $document->revisions()->count());
-        $this->assertTrue($this->reyes->notifications()->where('document_id', $document->id)->exists());
+        $this->assertTrue($this->l1->notifications()->where('document_id', $document->id)->exists());
 
-        $this->act($this->reyes, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->sectionHead->id])
+        $this->act($this->l1, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->l2->id])
             ->assertRedirect(route('reviews.index'));
         $document->refresh();
         $this->assertSame(Document::STATUS_PENDING_L2, $document->status);
-        $this->assertSame($this->sectionHead->id, $document->assigned_reviewer_id);
+        $this->assertSame($this->l2->id, $document->assigned_reviewer_id);
 
-        $this->act($this->sectionHead, $document, ['action' => 'endorse']);
+        $this->act($this->l2, $document, ['action' => 'endorse']);
         $document->refresh();
         $this->assertSame(Document::STATUS_PENDING_L3, $document->status);
-        $this->assertSame($this->divisionChief->id, $document->assigned_reviewer_id);
+        $this->assertSame($this->l3->id, $document->assigned_reviewer_id);
 
-        $this->act($this->divisionChief, $document, ['action' => 'approve']);
+        $this->act($this->l3, $document, ['action' => 'approve']);
         $document->refresh();
         $this->assertSame(Document::STATUS_APPROVED, $document->status);
         $this->assertNull($document->assigned_reviewer_id);
@@ -144,7 +144,7 @@ class DocumentWorkflowTest extends TestCase
             $this->assertSame($reference, $document->reference_number, 'reference number never changes');
             $this->assertSame(Document::STATUS_PENDING_L1, $document->status);
             $this->assertSame(1, $document->current_review_level);
-            $this->assertSame($this->reyes->id, $document->assigned_reviewer_id, "back to the same L1 after a level {$level} return");
+            $this->assertSame($this->l1->id, $document->assigned_reviewer_id, "back to the same L1 after a level {$level} return");
             $this->assertSame(2, (int) $document->revisions()->max('revision_number'));
             $this->assertSame(1, $document->resubmission_count);
             $this->assertTrue($dateSubmitted->equalTo($document->submitted_at), 'Date Submitted never changes on resubmission');
@@ -158,11 +158,11 @@ class DocumentWorkflowTest extends TestCase
     {
         $document = $this->submit();
 
-        $this->act($this->reyes, $document, ['action' => 'return', 'remarks' => ''])->assertSessionHasErrors('remarks');
+        $this->act($this->l1, $document, ['action' => 'return', 'remarks' => ''])->assertSessionHasErrors('remarks');
         $this->assertSame(Document::STATUS_PENDING_L1, $document->fresh()->status);
 
         // An assessment is optional when returning.
-        $this->act($this->reyes, $document, ['action' => 'return', 'assessment' => '', 'remarks' => 'Fix section 2.'])
+        $this->act($this->l1, $document, ['action' => 'return', 'assessment' => '', 'remarks' => 'Fix section 2.'])
             ->assertSessionHasNoErrors();
         $this->assertSame(Document::STATUS_RETURNED, $document->fresh()->status);
     }
@@ -171,7 +171,7 @@ class DocumentWorkflowTest extends TestCase
     {
         foreach ([1 => 'forward', 2 => 'endorse', 3 => 'approve'] as $level => $action) {
             $document = $this->documentAtLevel($level);
-            $data = ['action' => $action, 'l2_reviewer_id' => $this->sectionHead->id];
+            $data = ['action' => $action, 'l2_reviewer_id' => $this->l2->id];
 
             $this->act($this->reviewerAt($level), $document, [...$data, 'assessment' => ''])
                 ->assertSessionHasErrors('assessment');
@@ -189,14 +189,14 @@ class DocumentWorkflowTest extends TestCase
     public function test_resubmit_screen_shows_the_latest_return_remarks(): void
     {
         $document = $this->submit();
-        $this->act($this->reyes, $document, ['action' => 'return', 'remarks' => 'Add the budget table.']);
+        $this->act($this->l1, $document, ['action' => 'return', 'remarks' => 'Add the budget table.']);
 
         $this->actingAs($this->source)->get(route('documents.resubmit.edit', $document))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Documents/Resubmit')
                 ->where('document.reference_number', $document->reference_number)
-                ->where('lastReturn.reviewer', $this->reyes->name)
+                ->where('lastReturn.reviewer', $this->l1->name)
                 ->where('lastReturn.remarks', 'Add the budget table.'));
     }
 
@@ -204,22 +204,22 @@ class DocumentWorkflowTest extends TestCase
     {
         $document = $this->submit();
 
-        $this->act($this->reyes, $document, ['action' => 'forward'])->assertSessionHasErrors('l2_reviewer_id');
-        $this->act($this->reyes, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->divisionChief->id])
+        $this->act($this->l1, $document, ['action' => 'forward'])->assertSessionHasErrors('l2_reviewer_id');
+        $this->act($this->l1, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->l3->id])
             ->assertSessionHasErrors('l2_reviewer_id');
     }
 
     public function test_actions_are_limited_to_the_review_level(): void
     {
         $document = $this->documentAtLevel(1);
-        $this->act($this->reyes, $document, ['action' => 'approve'])->assertSessionHasErrors('action');
+        $this->act($this->l1, $document, ['action' => 'approve'])->assertSessionHasErrors('action');
 
         $document = $this->documentAtLevel(2);
-        $this->act($this->sectionHead, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->sectionHead->id])
+        $this->act($this->l2, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->l2->id])
             ->assertSessionHasErrors('action');
 
         $document = $this->documentAtLevel(3);
-        $this->act($this->divisionChief, $document, ['action' => 'endorse'])->assertSessionHasErrors('action');
+        $this->act($this->l3, $document, ['action' => 'endorse'])->assertSessionHasErrors('action');
     }
 
     public function test_self_review_is_blocked(): void
@@ -234,16 +234,16 @@ class DocumentWorkflowTest extends TestCase
 
         // A reviewer can't review a document they submitted.
         $document = $this->submit();
-        $document->update(['submitted_by' => $this->reyes->id]);
+        $document->update(['submitted_by' => $this->l1->id]);
 
-        $this->act($this->reyes, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->sectionHead->id])
+        $this->act($this->l1, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->l2->id])
             ->assertSessionHas('error', "Self-Review Restriction: you can't review {$document->reference_number} because you submitted it.");
         $this->assertSame(Document::STATUS_PENDING_L1, $document->fresh()->status);
     }
 
     public function test_l1_and_l2_can_submit_but_the_l3_cannot(): void
     {
-        $otherL2 = User::where('email', 'l2.navarro@docuflow.test')->firstOrFail();
+        $otherL2 = User::where('email', 'l2b@docuflow.test')->firstOrFail();
         $store = fn (User $submitter, User $l1) => $this->actingAs($submitter)->post(route('documents.store'), [
             'document_type' => 'Report',
             'source_type' => 'link',
@@ -252,38 +252,38 @@ class DocumentWorkflowTest extends TestCase
         ]);
 
         // An L1 submits to the other L1, never to themself.
-        $this->actingAs($this->reyes)->get(route('documents.create'))->assertOk();
-        $store($this->reyes, $this->reyes)->assertSessionHasErrors('l1_reviewer_id');
-        $store($this->reyes, $this->cruz)->assertSessionHasNoErrors();
-        $byReyes = Document::latest('id')->firstOrFail();
-        $this->assertSame($this->reyes->id, $byReyes->submitted_by);
-        $this->assertSame($this->cruz->id, $byReyes->assigned_reviewer_id);
+        $this->actingAs($this->l1)->get(route('documents.create'))->assertOk();
+        $store($this->l1, $this->l1)->assertSessionHasErrors('l1_reviewer_id');
+        $store($this->l1, $this->l1b)->assertSessionHasNoErrors();
+        $bySofia = Document::latest('id')->firstOrFail();
+        $this->assertSame($this->l1->id, $bySofia->submitted_by);
+        $this->assertSame($this->l1b->id, $bySofia->assigned_reviewer_id);
 
         // An L2's own document can't be forwarded to them, only to the other L2.
-        $store($this->sectionHead, $this->reyes)->assertSessionHasNoErrors();
+        $store($this->l2, $this->l1)->assertSessionHasNoErrors();
         $byCarlo = Document::latest('id')->firstOrFail();
-        $this->actingAs($this->reyes)->get(route('documents.show', $byCarlo))
+        $this->actingAs($this->l1)->get(route('documents.show', $byCarlo))
             ->assertInertia(fn ($page) => $page
                 ->has('review.l2Reviewers', 1)
                 ->where('review.l2Reviewers.0.id', $otherL2->id));
-        $this->act($this->reyes, $byCarlo, ['action' => 'forward', 'l2_reviewer_id' => $this->sectionHead->id])
+        $this->act($this->l1, $byCarlo, ['action' => 'forward', 'l2_reviewer_id' => $this->l2->id])
             ->assertSessionHasErrors('l2_reviewer_id');
-        $this->act($this->reyes, $byCarlo, ['action' => 'forward', 'l2_reviewer_id' => $otherL2->id])
+        $this->act($this->l1, $byCarlo, ['action' => 'forward', 'l2_reviewer_id' => $otherL2->id])
             ->assertSessionHasNoErrors();
         $this->assertSame($otherL2->id, $byCarlo->fresh()->assigned_reviewer_id);
 
         // The L3 can't submit.
-        $this->actingAs($this->divisionChief)->get(route('documents.create'))
+        $this->actingAs($this->l3)->get(route('documents.create'))
             ->assertRedirect(route('reviews.index'))
             ->assertSessionHas('error', 'Only a Document Source, Immediate Supervisor (L1) or Section Head (L2) can submit documents.');
-        $store($this->divisionChief, $this->reyes)->assertSessionHas('error');
+        $store($this->l3, $this->l1)->assertSessionHas('error');
     }
 
     public function test_only_the_assigned_reviewer_can_act(): void
     {
         $document = $this->submit();
 
-        $this->act($this->cruz, $document, ['action' => 'return', 'remarks' => 'x'])
+        $this->act($this->l1b, $document, ['action' => 'return', 'remarks' => 'x'])
             ->assertSessionHas('error', "{$document->reference_number} is not assigned to you for review.");
         $this->act($this->source, $document, ['action' => 'return', 'remarks' => 'x'])
             ->assertSessionHas('error');
@@ -306,7 +306,7 @@ class DocumentWorkflowTest extends TestCase
     public function test_resubmission_requires_a_change_note(): void
     {
         $document = $this->submit();
-        $this->act($this->reyes, $document, ['action' => 'return', 'remarks' => 'Fix it.']);
+        $this->act($this->l1, $document, ['action' => 'return', 'remarks' => 'Fix it.']);
 
         $this->actingAs($this->source)->post(route('documents.resubmit', $document), [
             'source_type' => 'link',
@@ -318,7 +318,7 @@ class DocumentWorkflowTest extends TestCase
     {
         $post = fn (array $data) => $this->actingAs($this->source)->post(route('documents.store'), [
             'document_type' => 'Report',
-            'l1_reviewer_id' => $this->reyes->id,
+            'l1_reviewer_id' => $this->l1->id,
             ...$data,
         ]);
 
@@ -353,7 +353,7 @@ class DocumentWorkflowTest extends TestCase
             $document = $this->submit();
 
             $this->travel($days)->days();
-            $this->act($this->reyes, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->sectionHead->id]);
+            $this->act($this->l1, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->l2->id]);
             $this->travelBack();
 
             $review = $document->reviews()->latest('id')->firstOrFail();
@@ -367,8 +367,8 @@ class DocumentWorkflowTest extends TestCase
         $document = $this->submit();
 
         $this->actingAs($this->source)->get(route('documents.show', $document))->assertOk();
-        $this->actingAs($this->reyes)->get(route('documents.show', $document))->assertOk();
-        $this->actingAs($this->cruz)->get(route('documents.show', $document))
+        $this->actingAs($this->l1)->get(route('documents.show', $document))->assertOk();
+        $this->actingAs($this->l1b)->get(route('documents.show', $document))
             ->assertRedirect(route('reviews.index'))
             ->assertSessionHas('error');
     }
@@ -376,12 +376,12 @@ class DocumentWorkflowTest extends TestCase
     public function test_notifications_can_be_read_only_by_their_owner(): void
     {
         $document = $this->submit();
-        $notification = Notification::where('user_id', $this->reyes->id)->firstOrFail();
+        $notification = Notification::where('user_id', $this->l1->id)->firstOrFail();
 
-        $this->actingAs($this->cruz)->post(route('notifications.read', $notification))->assertSessionHas('error');
+        $this->actingAs($this->l1b)->post(route('notifications.read', $notification))->assertSessionHas('error');
         $this->assertFalse($notification->fresh()->is_read);
 
-        $this->actingAs($this->reyes)->post(route('notifications.read', $notification))
+        $this->actingAs($this->l1)->post(route('notifications.read', $notification))
             ->assertRedirect(route('documents.show', $document));
         $this->assertTrue($notification->fresh()->is_read);
     }

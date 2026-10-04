@@ -18,11 +18,11 @@ class DocumentDetailTest extends TestCase
 
     private User $source;
 
-    private User $reyes;
+    private User $l1;
 
-    private User $cruz;
+    private User $l1b;
 
-    private User $sectionHead;
+    private User $l2;
 
     protected function setUp(): void
     {
@@ -32,9 +32,9 @@ class DocumentDetailTest extends TestCase
         Storage::fake();
 
         $this->source = User::where('email', 'source@docuflow.test')->firstOrFail();
-        $this->reyes = User::where('email', 'l1.reyes@docuflow.test')->firstOrFail();
-        $this->cruz = User::where('email', 'l1.cruz@docuflow.test')->firstOrFail();
-        $this->sectionHead = User::where('email', 'l2@docuflow.test')->firstOrFail();
+        $this->l1 = User::where('email', 'l1@docuflow.test')->firstOrFail();
+        $this->l1b = User::where('email', 'l1b@docuflow.test')->firstOrFail();
+        $this->l2 = User::where('email', 'l2@docuflow.test')->firstOrFail();
     }
 
     private function submit(array $overrides = []): Document
@@ -43,7 +43,7 @@ class DocumentDetailTest extends TestCase
             'document_type' => 'Memo',
             'source_type' => 'link',
             'google_workspace_link' => 'https://docs.google.com/document/d/abc123/edit',
-            'l1_reviewer_id' => $this->reyes->id,
+            'l1_reviewer_id' => $this->l1->id,
             ...$overrides,
         ])->assertSessionHasNoErrors();
 
@@ -66,7 +66,7 @@ class DocumentDetailTest extends TestCase
         $this->actingAs($this->source)->get(route('documents.show', $document))
             ->assertInertia(fn ($page) => $page
                 ->where('document.review_level', 1)
-                ->where('document.assigned_reviewer', $this->reyes->name)
+                ->where('document.assigned_reviewer', $this->l1->name)
                 ->where('document.tat_days', 0)
                 ->where('document.tat_is_final', false)
                 ->where('document.is_overdue', false)
@@ -80,11 +80,11 @@ class DocumentDetailTest extends TestCase
                 ->where('document.is_overdue', true));
 
         // Forwarding stops the clock: the L2 starts at 0 days.
-        $this->act($this->reyes, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->sectionHead->id]);
+        $this->act($this->l1, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->l2->id]);
         $this->actingAs($this->source)->get(route('documents.show', $document))
             ->assertInertia(fn ($page) => $page
                 ->where('document.review_level', 2)
-                ->where('document.assigned_reviewer', $this->sectionHead->name)
+                ->where('document.assigned_reviewer', $this->l2->name)
                 ->where('document.tat_days', 0)
                 ->where('document.is_overdue', false));
     }
@@ -94,7 +94,7 @@ class DocumentDetailTest extends TestCase
         $document = $this->submit();
 
         $this->travel(2)->days();
-        $this->act($this->reyes, $document, ['action' => 'return', 'remarks' => 'Add the budget table.']);
+        $this->act($this->l1, $document, ['action' => 'return', 'remarks' => 'Add the budget table.']);
 
         $this->travel(1)->days();
         $this->actingAs($this->source)->post(route('documents.resubmit', $document), [
@@ -104,7 +104,7 @@ class DocumentDetailTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         $this->travel(1)->days();
-        $this->act($this->reyes, $document, ['action' => 'return', 'remarks' => 'Totals are wrong.']);
+        $this->act($this->l1, $document, ['action' => 'return', 'remarks' => 'Totals are wrong.']);
 
         $this->actingAs($this->source)->get(route('documents.show', $document))
             ->assertInertia(fn ($page) => $page
@@ -127,7 +127,7 @@ class DocumentDetailTest extends TestCase
                 ->where('reviews.0.remarks', 'Add the budget table.')
                 ->where('reviews.0.tat_days', 2)
                 ->where('reviews.1.revision_number', 2)
-                ->where('reviews.1.reviewer', $this->reyes->name)
+                ->where('reviews.1.reviewer', $this->l1->name)
                 ->where('reviews.1.action', 'return')
                 ->where('reviews.1.review_level', 1));
     }
@@ -138,7 +138,7 @@ class DocumentDetailTest extends TestCase
             'source_type' => 'file',
             'file' => UploadedFile::fake()->create('report.pdf', 100, 'application/pdf'),
         ]);
-        $this->act($this->reyes, $document, ['action' => 'return', 'remarks' => 'Fix page 2.']);
+        $this->act($this->l1, $document, ['action' => 'return', 'remarks' => 'Fix page 2.']);
 
         Storage::delete($document->file_path);
 
@@ -156,7 +156,7 @@ class DocumentDetailTest extends TestCase
     {
         $document = $this->submit();
 
-        $this->actingAs($this->cruz)->get(route('documents.show', $document))
+        $this->actingAs($this->l1b)->get(route('documents.show', $document))
             ->assertRedirect(route('reviews.index'))
             ->assertSessionHas('error', "You don't have access to {$document->reference_number}. Only its Document Source and its reviewers can open it.");
 

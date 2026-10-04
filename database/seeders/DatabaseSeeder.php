@@ -11,26 +11,40 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
+     * Accounts that existed under an older email. They are renamed in place
+     * so their documents, reviews and notifications stay linked.
+     */
+    private const PREVIOUS_EMAILS = [
+        'l1@docuflow.test' => 'l1.reyes@docuflow.test',
+        'l1b@docuflow.test' => 'l1.cruz@docuflow.test',
+        'l2b@docuflow.test' => 'l2.navarro@docuflow.test',
+    ];
+
+    /**
      * Seed the application's database.
      */
     public function run(): void
     {
-        // Test accounts, all with password "password". Two sections, each
-        // with an L1 and an L2 (Section A and Section B). Keyed by email so
+        // Test accounts, all with password "password". Keyed by email so
         // re-running the seeder (e.g. on every Railway deploy) is safe.
+        // Two L1s and two L2s, so an L1's or L2's own document can still go to
+        // another reviewer (Self-Review Restriction). One section for all of
+        // them; the Division Chief has none, their summary is system-wide.
         $accounts = [
-            ['name' => 'Maria Santos', 'email' => 'source@docuflow.test', 'role' => User::ROLE_DOCUMENT_SOURCE, 'section' => 'Section A'],
-            ['name' => 'Jose Reyes', 'email' => 'l1.reyes@docuflow.test', 'role' => User::ROLE_L1, 'section' => 'Section A'],
-            ['name' => 'Ana Cruz', 'email' => 'l1.cruz@docuflow.test', 'role' => User::ROLE_L1, 'section' => 'Section B'],
-            ['name' => 'Carlo Mendoza', 'email' => 'l2@docuflow.test', 'role' => User::ROLE_L2, 'section' => 'Section A'],
-            // A second L2, so a document an L2 submits can still be forwarded
-            // (the Self-Review Restriction keeps it away from its submitter).
-            ['name' => 'Teresa Navarro', 'email' => 'l2.navarro@docuflow.test', 'role' => User::ROLE_L2, 'section' => 'Section B'],
-            // The Division Chief has no section: their summary is system-wide.
-            ['name' => 'Liza Ramos', 'email' => 'l3@docuflow.test', 'role' => User::ROLE_L3, 'section' => null],
+            ['name' => 'Raniel Dela Cruz', 'email' => 'source@docuflow.test', 'role' => User::ROLE_DOCUMENT_SOURCE, 'section' => 'Section A'],
+            ['name' => 'Sofia Padua', 'email' => 'l1@docuflow.test', 'role' => User::ROLE_L1, 'section' => 'Section A'],
+            ['name' => 'Carlo Baracena', 'email' => 'l1b@docuflow.test', 'role' => User::ROLE_L1, 'section' => 'Section A'],
+            ['name' => 'Nairb Varona', 'email' => 'l2@docuflow.test', 'role' => User::ROLE_L2, 'section' => 'Section A'],
+            ['name' => 'Beejay Carpio', 'email' => 'l2b@docuflow.test', 'role' => User::ROLE_L2, 'section' => 'Section A'],
+            ['name' => 'RomeoJr Albeza', 'email' => 'l3@docuflow.test', 'role' => User::ROLE_L3, 'section' => null],
         ];
 
         foreach ($accounts as $account) {
+            $previousEmail = self::PREVIOUS_EMAILS[$account['email']] ?? null;
+            if ($previousEmail && ! User::where('email', $account['email'])->exists()) {
+                User::where('email', $previousEmail)->update(['email' => $account['email']]);
+            }
+
             $user = User::updateOrCreate(
                 ['email' => $account['email']],
                 [

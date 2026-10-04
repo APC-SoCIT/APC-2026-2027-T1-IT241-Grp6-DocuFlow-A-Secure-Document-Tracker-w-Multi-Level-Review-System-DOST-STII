@@ -22,11 +22,11 @@ class ChecklistTest extends TestCase
 
     private User $source;
 
-    private User $reyes;
+    private User $l1;
 
-    private User $carlo;
+    private User $l2;
 
-    private User $liza;
+    private User $l3;
 
     protected function setUp(): void
     {
@@ -36,9 +36,9 @@ class ChecklistTest extends TestCase
         Storage::fake();
 
         $this->source = User::where('email', 'source@docuflow.test')->firstOrFail();
-        $this->reyes = User::where('email', 'l1.reyes@docuflow.test')->firstOrFail();
-        $this->carlo = User::where('email', 'l2@docuflow.test')->firstOrFail();
-        $this->liza = User::where('email', 'l3@docuflow.test')->firstOrFail();
+        $this->l1 = User::where('email', 'l1@docuflow.test')->firstOrFail();
+        $this->l2 = User::where('email', 'l2@docuflow.test')->firstOrFail();
+        $this->l3 = User::where('email', 'l3@docuflow.test')->firstOrFail();
     }
 
     private function submitPayload(array $overrides = []): array
@@ -47,7 +47,7 @@ class ChecklistTest extends TestCase
             'document_type' => 'Memo',
             'source_type' => 'link',
             'google_workspace_link' => 'https://docs.google.com/document/d/x/edit',
-            'l1_reviewer_id' => $this->reyes->id,
+            'l1_reviewer_id' => $this->l1->id,
             ...$overrides,
         ];
     }
@@ -88,8 +88,8 @@ class ChecklistTest extends TestCase
         $this->withoutExceptionHandling();
 
         try {
-            $this->actingAs($this->reyes)->post(route('reviews.store', $document), [
-                'action' => 'forward', 'assessment' => 'OK', 'remarks' => 'OK', 'l2_reviewer_id' => $this->carlo->id,
+            $this->actingAs($this->l1)->post(route('reviews.store', $document), [
+                'action' => 'forward', 'assessment' => 'OK', 'remarks' => 'OK', 'l2_reviewer_id' => $this->l2->id,
             ]);
             $this->fail('The simulated failure should have stopped the review.');
         } catch (RuntimeException) {
@@ -98,7 +98,7 @@ class ChecklistTest extends TestCase
 
         $document->refresh();
         $this->assertSame(Document::STATUS_PENDING_L1, $document->status);
-        $this->assertSame($this->reyes->id, $document->assigned_reviewer_id);
+        $this->assertSame($this->l1->id, $document->assigned_reviewer_id);
         $this->assertSame(0, Review::count());
     }
 
@@ -118,7 +118,7 @@ class ChecklistTest extends TestCase
         $document = Document::firstOrFail();
 
         // Still at Level 1: the L3 can't approve it.
-        $this->actingAs($this->liza)->post(route('reviews.store', $document), [
+        $this->actingAs($this->l3)->post(route('reviews.store', $document), [
             'action' => 'approve', 'assessment' => 'OK', 'remarks' => 'OK',
         ])->assertSessionHas('error');
         $this->assertSame(Document::STATUS_PENDING_L1, $document->fresh()->status);
@@ -138,15 +138,15 @@ class ChecklistTest extends TestCase
 
         $level = fn (User $user) => $this->actingAs($user)->get(route('documents.show', $document));
 
-        $level($this->reyes)->assertInertia(fn ($page) => $page->where('review.level', 1)->has('review.l2Reviewers'));
+        $level($this->l1)->assertInertia(fn ($page) => $page->where('review.level', 1)->has('review.l2Reviewers'));
         $level($this->source)->assertInertia(fn ($page) => $page->where('review', null));
 
-        $this->actingAs($this->reyes)->post(route('reviews.store', $document), [
-            'action' => 'forward', 'assessment' => 'OK', 'remarks' => 'OK', 'l2_reviewer_id' => $this->carlo->id,
+        $this->actingAs($this->l1)->post(route('reviews.store', $document), [
+            'action' => 'forward', 'assessment' => 'OK', 'remarks' => 'OK', 'l2_reviewer_id' => $this->l2->id,
         ]);
-        $level($this->reyes)->assertInertia(fn ($page) => $page->where('review', null));
-        $level($this->carlo)->assertInertia(fn ($page) => $page
+        $level($this->l1)->assertInertia(fn ($page) => $page->where('review', null));
+        $level($this->l2)->assertInertia(fn ($page) => $page
             ->where('review.level', 2)
-            ->where('review.l3ReviewerName', $this->liza->name));
+            ->where('review.l3ReviewerName', $this->l3->name));
     }
 }

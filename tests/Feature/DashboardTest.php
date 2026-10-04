@@ -17,15 +17,15 @@ class DashboardTest extends TestCase
 
     private User $source;
 
-    private User $reyes;
+    private User $l1;
 
-    private User $cruz;
+    private User $l1b;
 
-    private User $carlo;
+    private User $l2;
 
-    private User $teresa;
+    private User $l2b;
 
-    private User $liza;
+    private User $l3;
 
     protected function setUp(): void
     {
@@ -34,11 +34,11 @@ class DashboardTest extends TestCase
         $this->seed();
 
         $this->source = User::where('email', 'source@docuflow.test')->firstOrFail();
-        $this->reyes = User::where('email', 'l1.reyes@docuflow.test')->firstOrFail();     // Section A
-        $this->cruz = User::where('email', 'l1.cruz@docuflow.test')->firstOrFail();       // Section B
-        $this->carlo = User::where('email', 'l2@docuflow.test')->firstOrFail();           // Section A
-        $this->teresa = User::where('email', 'l2.navarro@docuflow.test')->firstOrFail();  // Section B
-        $this->liza = User::where('email', 'l3@docuflow.test')->firstOrFail();
+        $this->l1 = User::where('email', 'l1@docuflow.test')->firstOrFail();
+        $this->l1b = User::where('email', 'l1b@docuflow.test')->firstOrFail();
+        $this->l2 = User::where('email', 'l2@docuflow.test')->firstOrFail();
+        $this->l2b = User::where('email', 'l2b@docuflow.test')->firstOrFail();
+        $this->l3 = User::where('email', 'l3@docuflow.test')->firstOrFail();
     }
 
     private function submit(User $l1): Document
@@ -70,14 +70,14 @@ class DashboardTest extends TestCase
 
     public function test_document_source_numbers_match_their_list(): void
     {
-        $pending = $this->submit($this->reyes);
-        $returned = $this->submit($this->reyes);
-        $approved = $this->submit($this->reyes);
+        $pending = $this->submit($this->l1);
+        $returned = $this->submit($this->l1);
+        $approved = $this->submit($this->l1);
 
-        $this->act($this->reyes, $returned, ['action' => 'return', 'remarks' => 'Fix it.']);
-        $this->act($this->reyes, $approved, ['action' => 'forward', 'l2_reviewer_id' => $this->carlo->id]);
-        $this->act($this->carlo, $approved, ['action' => 'endorse']);
-        $this->act($this->liza, $approved, ['action' => 'approve']);
+        $this->act($this->l1, $returned, ['action' => 'return', 'remarks' => 'Fix it.']);
+        $this->act($this->l1, $approved, ['action' => 'forward', 'l2_reviewer_id' => $this->l2->id]);
+        $this->act($this->l2, $approved, ['action' => 'endorse']);
+        $this->act($this->l3, $approved, ['action' => 'approve']);
 
         $dashboard = $this->dashboard($this->source);
 
@@ -87,83 +87,96 @@ class DashboardTest extends TestCase
         $this->assertSame(Document::where('submitted_by', $this->source->id)->count(), $dashboard['total']);
     }
 
+    /** A reviewer in another section, to prove other sections aren't counted. */
+    private function reviewerInAnotherSection(): User
+    {
+        return User::factory()->create(['name' => 'Other Section L1', 'role' => User::ROLE_L1, 'section' => 'Section B']);
+    }
+
     public function test_section_summary_counts_only_reviewers_in_the_same_section(): void
     {
-        $a1 = $this->submit($this->reyes);   // Section A, New
-        $a2 = $this->submit($this->reyes);   // Section A, will be Ongoing
-        $b1 = $this->submit($this->cruz);    // Section B
-        $this->actingAs($this->reyes)->get(route('documents.show', $a2));
+        $other = $this->reviewerInAnotherSection();
 
-        $dashboard = $this->dashboard($this->reyes);
+        $this->submit($this->l1);                  // Sofia, New
+        $opened = $this->submit($this->l1);        // Sofia, will be Ongoing
+        $this->submit($this->l1b);                 // Carlo (same section), New
+        $this->submit($other);                     // another section: not counted
+        $this->actingAs($this->l1)->get(route('documents.show', $opened));
+
+        $dashboard = $this->dashboard($this->l1);
 
         $this->assertSame('section', $dashboard['kind']);
         $this->assertSame('Section A summary', $dashboard['title']);
         $this->assertSame(2, $dashboard['queue']);
-        $this->assertSame([1, 1, 2], [$dashboard['new'], $dashboard['ongoing'], $dashboard['pending']]);
-        // Workload lists Section A reviewers only: Carlo (0) and Reyes (2).
+        $this->assertSame([2, 1, 3], [$dashboard['new'], $dashboard['ongoing'], $dashboard['pending']]);
+        // Workload lists the section's reviewers only (both L1s and both L2s).
         $this->assertSame(
-            [['name' => 'Carlo Mendoza', 'count' => 0], ['name' => 'Jose Reyes', 'count' => 2]],
+            [
+                ['name' => 'Beejay Carpio', 'count' => 0],
+                ['name' => 'Carlo Baracena', 'count' => 1],
+                ['name' => 'Nairb Varona', 'count' => 0],
+                ['name' => 'Sofia Padua', 'count' => 2],
+            ],
             collect($dashboard['workload'])->map(fn ($r) => ['name' => $r['name'], 'count' => $r['count']])->all(),
         );
 
-        // The L2 in Section B sees Cruz's document, not Section A's.
-        $section = $this->dashboard($this->teresa);
+        // The other section's reviewer sees only their own section.
+        $section = $this->dashboard($other);
         $this->assertSame('Section B summary', $section['title']);
-        $this->assertSame(0, $section['queue']);
-        $this->assertSame(1, $section['pending']);
-        $this->assertEqualsCanonicalizing(['Ana Cruz', 'Teresa Navarro'], collect($section['workload'])->pluck('name')->all());
+        $this->assertSame([1, 1], [$section['queue'], $section['pending']]);
+        $this->assertSame(['Other Section L1'], collect($section['workload'])->pluck('name')->all());
     }
 
     public function test_averages_show_no_data_until_reviews_are_completed(): void
     {
-        $this->submit($this->reyes);
+        $this->submit($this->l1);
 
-        $dashboard = $this->dashboard($this->reyes);
+        $dashboard = $this->dashboard($this->l1);
         $this->assertNull($dashboard['average_tat']);
         $this->assertNull($dashboard['average_rating']);
 
-        // Two completed reviews in Section A: 0 days (rating 5) and 6 days (rating 1).
-        $fast = $this->submit($this->reyes);
-        $this->act($this->reyes, $fast, ['action' => 'forward', 'l2_reviewer_id' => $this->carlo->id]);
-        $slow = $this->submit($this->reyes);
+        // Two completed reviews in the section: 0 days (rating 5) and 6 days (rating 1).
+        $fast = $this->submit($this->l1);
+        $this->act($this->l1, $fast, ['action' => 'forward', 'l2_reviewer_id' => $this->l2->id]);
+        $slow = $this->submit($this->l1);
         $this->travel(6)->days();
-        $this->act($this->reyes, $slow, ['action' => 'return', 'remarks' => 'Fix it.']);
+        $this->act($this->l1, $slow, ['action' => 'return', 'remarks' => 'Fix it.']);
 
-        $dashboard = $this->dashboard($this->reyes);
+        $dashboard = $this->dashboard($this->l1);
         $this->assertSame(3.0, (float) $dashboard['average_tat']);
         $this->assertSame(3.0, (float) $dashboard['average_rating']);
 
-        // Section B has no completed reviews yet.
-        $this->assertNull($this->dashboard($this->cruz)['average_rating']);
+        // Another section has no completed reviews yet.
+        $this->assertNull($this->dashboard($this->reviewerInAnotherSection())['average_rating']);
     }
 
     public function test_l3_sees_their_approval_queue_and_the_system_wide_summary(): void
     {
-        $a = $this->submit($this->reyes);
-        $this->submit($this->cruz);
-        $this->act($this->reyes, $a, ['action' => 'forward', 'l2_reviewer_id' => $this->carlo->id]);
-        $this->act($this->carlo, $a, ['action' => 'endorse']);
+        $a = $this->submit($this->l1);
+        $this->submit($this->l1b);
+        $this->act($this->l1, $a, ['action' => 'forward', 'l2_reviewer_id' => $this->l2->id]);
+        $this->act($this->l2, $a, ['action' => 'endorse']);
 
-        $dashboard = $this->dashboard($this->liza);
+        $dashboard = $this->dashboard($this->l3);
 
         $this->assertSame('system', $dashboard['kind']);
         $this->assertSame(1, $dashboard['queue']);
-        $this->assertSame(2, $dashboard['pending']);   // one with Liza, one with Cruz
-        $this->assertCount(5, $dashboard['workload']); // every reviewer, both sections + L3
+        $this->assertSame(2, $dashboard['pending']);   // one with RomeoJr, one with Carlo
+        $this->assertCount(5, $dashboard['workload']); // every reviewer: both L1s, both L2s and the L3
         $this->assertSame(5.0, (float) $dashboard['average_rating']);
     }
 
     public function test_new_and_ongoing_follow_the_reviewer_opening_and_hand_offs(): void
     {
-        $document = $this->submit($this->reyes);
-        $this->assertSame([1, 0], [$this->dashboard($this->reyes)['new'], $this->dashboard($this->reyes)['ongoing']]);
+        $document = $this->submit($this->l1);
+        $this->assertSame([1, 0], [$this->dashboard($this->l1)['new'], $this->dashboard($this->l1)['ongoing']]);
 
-        $this->actingAs($this->reyes)->get(route('documents.show', $document));
-        $this->assertSame([0, 1], [$this->dashboard($this->reyes)['new'], $this->dashboard($this->reyes)['ongoing']]);
+        $this->actingAs($this->l1)->get(route('documents.show', $document));
+        $this->assertSame([0, 1], [$this->dashboard($this->l1)['new'], $this->dashboard($this->l1)['ongoing']]);
 
-        // Forwarded to Carlo (same section): New again.
-        $this->act($this->reyes, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->carlo->id]);
-        $dashboard = $this->dashboard($this->carlo);
+        // Forwarded to Nairb (same section): New again.
+        $this->act($this->l1, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->l2->id]);
+        $dashboard = $this->dashboard($this->l2);
         $this->assertSame([1, 0, 1], [$dashboard['new'], $dashboard['ongoing'], $dashboard['pending']]);
     }
 }

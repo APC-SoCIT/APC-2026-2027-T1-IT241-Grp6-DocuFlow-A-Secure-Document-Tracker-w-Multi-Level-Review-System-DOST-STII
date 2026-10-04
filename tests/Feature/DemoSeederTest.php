@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Document;
 use App\Models\Notification;
 use App\Models\Review;
+use App\Models\User;
 use App\Services\TatRatingService;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -37,11 +38,11 @@ class DemoSeederTest extends TestCase
                 ->map(fn ($d) => $d->reviews()->orderBy('id')->pluck('rating')->all())->all(),
         );
 
-        // Both Section A and Section B reviewers have completed reviews (averages aren't empty).
-        foreach (['Section A', 'Section B'] as $section) {
+        // Every L1 and L2 has completed reviews, so the dashboard averages aren't empty.
+        foreach (User::whereIn('role', [User::ROLE_L1, User::ROLE_L2])->get() as $reviewer) {
             $this->assertTrue(
-                Review::whereHas('reviewer', fn ($q) => $q->where('section', $section))->exists(),
-                "{$section} has completed reviews",
+                Review::where('reviewer_id', $reviewer->id)->exists(),
+                "{$reviewer->name} has completed reviews",
             );
         }
 
