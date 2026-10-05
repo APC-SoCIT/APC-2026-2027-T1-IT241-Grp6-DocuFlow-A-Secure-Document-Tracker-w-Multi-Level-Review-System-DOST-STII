@@ -41,7 +41,6 @@ class DocumentFilterTest extends TestCase
             $submitter ?? $this->source,
             $type,
             null,
-            "{$type} document",
             null,
             'https://docs.google.com/document/d/x/edit',
             null,
@@ -74,30 +73,26 @@ class DocumentFilterTest extends TestCase
         $this->assertSame([], $this->refs($this->source, ['search' => 'nothing-like-this']));
     }
 
-    public function test_search_by_document_name_and_typed_other_type(): void
+    public function test_search_matches_the_typed_other_type(): void
     {
-        $memo = $this->submit('Memo');
-        $memo->update(['document_name' => 'Office Relocation Memorandum']);
+        $this->submit('Memo');
         $other = $this->submit('Other');
         $other->update(['document_type_other' => 'Equipment Inventory']);
 
-        $this->assertSame([$memo->reference_number], $this->refs($this->source, ['search' => 'relocation']));
         $this->assertSame([$other->reference_number], $this->refs($this->source, ['search' => 'inventory']));
     }
 
     public function test_header_search_returns_quick_results_within_access(): void
     {
         $mine = $this->submit('Memo');
-        $mine->update(['document_name' => 'Section A Leave Schedule']);
         // Submitted by Sofia to Carlo: the Document Source can't see it.
-        $notMine = $this->submit('Memo', $this->l1, $this->l1b);
-        $notMine->update(['document_name' => 'Section A Leave Plan']);
+        $this->submit('Memo', $this->l1, $this->l1b);
 
-        $this->actingAs($this->source)->getJson(route('documents.search', ['search' => 'section a']))
+        $this->actingAs($this->source)->getJson(route('documents.search', ['search' => 'memo']))
             ->assertOk()
             ->assertJsonCount(1, 'documents')
             ->assertJsonPath('documents.0.reference_number', $mine->reference_number)
-            ->assertJsonPath('documents.0.document_name', 'Section A Leave Schedule');
+            ->assertJsonPath('documents.0.document_type', 'Memo');
 
         // Same filters as the list.
         $this->actingAs($this->source)->getJson(route('documents.search', ['status' => Document::STATUS_RETURNED]))

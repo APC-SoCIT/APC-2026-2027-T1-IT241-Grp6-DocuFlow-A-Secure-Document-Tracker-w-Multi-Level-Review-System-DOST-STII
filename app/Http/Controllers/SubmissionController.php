@@ -52,7 +52,6 @@ class SubmissionController extends Controller
         }
 
         $validated = $request->validate([
-            'document_name' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:2000'],
             'document_type' => ['required', Rule::in(Document::TYPES)],
             // "Other" needs the submitter to say what kind of document it is.
@@ -67,7 +66,6 @@ class SubmissionController extends Controller
             ],
         ], [
             ...$this->sourceMessages(),
-            'document_name.required' => 'Enter the document name.',
             'document_type_other.required' => 'Type what kind of document this is.',
             'l1_reviewer_id.required' => 'Select an Immediate Supervisor (L1).',
             'l1_reviewer_id.exists' => 'Select a valid Immediate Supervisor (L1).',
@@ -80,7 +78,6 @@ class SubmissionController extends Controller
             $submitter,
             $validated['document_type'],
             $validated['document_type_other'] ?? null,
-            $validated['document_name'],
             $validated['description'] ?? null,
             $usesLink ? $validated['google_workspace_link'] : null,
             $usesLink ? null : $request->file('file')->store('documents'),
@@ -104,7 +101,6 @@ class SubmissionController extends Controller
             'document' => [
                 'id' => $document->id,
                 'reference_number' => $document->reference_number,
-                'document_name' => $document->document_name,
                 'google_workspace_link' => $document->google_workspace_link,
                 'has_file' => $document->file_path !== null,
             ],

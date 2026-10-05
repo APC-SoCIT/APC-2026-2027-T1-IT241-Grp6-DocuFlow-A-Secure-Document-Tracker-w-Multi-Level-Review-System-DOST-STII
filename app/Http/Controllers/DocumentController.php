@@ -69,7 +69,6 @@ class DocumentController extends Controller
             'documents' => $documents->map(fn (Document $d) => [
                 'id' => $d->id,
                 'reference_number' => $d->reference_number,
-                'document_name' => $d->document_name,
                 'document_type' => $d->typeLabel(),
                 'status' => $d->status,
                 'submitted_at' => $d->submitted_at,
@@ -106,7 +105,7 @@ class DocumentController extends Controller
 
     /**
      * Documents this account may see, narrowed by the filters. Search looks
-     * at the reference number, document name and document type.
+     * at the reference number and the document type (including a typed "Other").
      *
      * @param  array<string, string>  $filters
      */
@@ -116,7 +115,6 @@ class DocumentController extends Controller
             ->visibleTo($user)
             ->when($filters['search'] ?? null, fn (Builder $q, string $search) => $q->where(fn (Builder $q) => $q
                 ->where('reference_number', 'like', "%{$search}%")
-                ->orWhere('document_name', 'like', "%{$search}%")
                 ->orWhere('document_type', 'like', "%{$search}%")
                 ->orWhere('document_type_other', 'like', "%{$search}%")))
             ->when($filters['status'] ?? null, fn (Builder $q, string $status) => $q->where('status', $status))
@@ -171,7 +169,6 @@ class DocumentController extends Controller
             'document' => [
                 'id' => $document->id,
                 'reference_number' => $document->reference_number,
-                'document_name' => $document->document_name,
                 'description' => $document->description,
                 'document_type' => $document->typeLabel(),
                 'submitted_by' => $document->submitter->name,
@@ -225,7 +222,6 @@ class DocumentController extends Controller
         return [
             'id' => $document->id,
             'reference_number' => $document->reference_number,
-            'document_name' => $document->document_name,
             'document_type' => $document->typeLabel(),
             'submitted_at' => $document->submitted_at,
             'status' => $document->status,

@@ -44,7 +44,6 @@ class DocumentWorkflowTest extends TestCase
     private function submit(array $overrides = []): Document
     {
         $this->actingAs($this->source)->post(route('documents.store'), [
-            'document_name' => 'Test document',
             'document_type' => 'Memo',
             'source_type' => 'link',
             'google_workspace_link' => 'https://docs.google.com/document/d/abc123/edit',
@@ -227,7 +226,6 @@ class DocumentWorkflowTest extends TestCase
     {
         // A submitter can't pick themself as reviewer.
         $this->actingAs($this->source)->post(route('documents.store'), [
-            'document_name' => 'Test document',
             'document_type' => 'Memo',
             'source_type' => 'link',
             'google_workspace_link' => 'https://docs.google.com/document/d/abc/edit',
@@ -247,7 +245,6 @@ class DocumentWorkflowTest extends TestCase
     {
         $otherL2 = User::where('email', 'l2b@docuflow.test')->firstOrFail();
         $store = fn (User $submitter, User $l1) => $this->actingAs($submitter)->post(route('documents.store'), [
-            'document_name' => 'Test document',
             'document_type' => 'Report',
             'source_type' => 'link',
             'google_workspace_link' => 'https://docs.google.com/document/d/l1l2/edit',
@@ -320,7 +317,6 @@ class DocumentWorkflowTest extends TestCase
     public function test_upload_rules(): void
     {
         $post = fn (array $data) => $this->actingAs($this->source)->post(route('documents.store'), [
-            'document_name' => 'Test document',
             'document_type' => 'Report',
             'l1_reviewer_id' => $this->l1->id,
             ...$data,
@@ -342,10 +338,9 @@ class DocumentWorkflowTest extends TestCase
             ->assertSessionHasNoErrors();
     }
 
-    public function test_document_name_is_required_and_other_needs_its_type_typed(): void
+    public function test_other_needs_its_type_typed_and_description_is_optional(): void
     {
         $post = fn (array $data) => $this->actingAs($this->source)->post(route('documents.store'), [
-            'document_name' => 'Equipment Inventory Summary',
             'document_type' => 'Memo',
             'source_type' => 'link',
             'google_workspace_link' => 'https://docs.google.com/document/d/x/edit',
@@ -353,7 +348,6 @@ class DocumentWorkflowTest extends TestCase
             ...$data,
         ]);
 
-        $post(['document_name' => ''])->assertSessionHasErrors(['document_name' => 'Enter the document name.']);
         $post(['document_type' => 'Other'])
             ->assertSessionHasErrors(['document_type_other' => 'Type what kind of document this is.']);
 
@@ -363,15 +357,16 @@ class DocumentWorkflowTest extends TestCase
             'description' => 'Laboratory equipment on hand.',
         ])->assertSessionHasNoErrors();
         $document = Document::latest('id')->firstOrFail();
-        $this->assertSame('Equipment Inventory Summary', $document->document_name);
         $this->assertSame('Laboratory equipment on hand.', $document->description);
         $this->assertSame('Equipment Inventory', $document->typeLabel());
         // The reference number still uses the fixed type.
         $this->assertStringStartsWith('OTHER-', $document->reference_number);
 
-        // The typed type is only kept for "Other".
+        // The typed type is only kept for "Other"; no description is fine.
         $post(['document_type' => 'Memo', 'document_type_other' => 'Ignored'])->assertSessionHasNoErrors();
-        $this->assertNull(Document::latest('id')->firstOrFail()->document_type_other);
+        $document = Document::latest('id')->firstOrFail();
+        $this->assertNull($document->document_type_other);
+        $this->assertNull($document->description);
     }
 
     public function test_reference_numbers_count_up_per_type(): void
@@ -407,6 +402,27 @@ class DocumentWorkflowTest extends TestCase
         $this->actingAs($this->l1b)->get(route('documents.show', $document))
             ->assertRedirect(route('reviews.index'))
             ->assertSessionHas('error');
+    }
+
+    public function test_bell_popover_lists_recent_notifications_and_unread_count(): void
+    {
+        $this->submit();
+        $this->submit();
+
+        $this->actingAs($this->l1)->getJson(route('notifications.recent'))
+            ->assertOk()
+            ->assertJsonPath('unread', 2)
+            ->assertJsonCount(2, 'notifications');
+        // Another account sees none of them.
+        $this->actingAs($this->l1b)->getJson(route('notifications.recent'))
+            ->assertOk()
+            ->assertJsonPath('unread', 0)
+            ->assertJsonCount(0, 'notifications');
+
+        // Mark all as read returns to the page it was clicked on.
+        $this->actingAs($this->l1)->from(route('reviews.index'))->post(route('notifications.read-all'))
+            ->assertRedirect(route('reviews.index'));
+        $this->actingAs($this->l1)->getJson(route('notifications.recent'))->assertJsonPath('unread', 0);
     }
 
     public function test_notifications_can_be_read_only_by_their_owner(): void

@@ -48,7 +48,7 @@ function Entry({ icon: Icon, iconClassName, title, meta, date, text, onClick }) 
  */
 export default function DocumentHistory({ revisions, reviews }) {
     // The last opened record stays set while the dialog animates closed.
-    const [dialog, setDialog] = useState(null); // { title, rows }
+    const [dialog, setDialog] = useState(null); // see HistoryDialog's `record`
     const [dialogOpen, setDialogOpen] = useState(false);
     const view = (record) => {
         setDialog(record);
@@ -90,15 +90,19 @@ export default function DocumentHistory({ revisions, reviews }) {
                                         text={r.remarks}
                                         onClick={() =>
                                             view({
-                                                title: `Level ${r.review_level} review: ${action.label}`,
-                                                rows: [
+                                                icon: action.icon,
+                                                iconClassName: action.className,
+                                                title: `${action.label} at Level ${r.review_level}`,
+                                                subtitle: `${r.reviewer} · ${formatDateTime(r.reviewed_at)}`,
+                                                facts: [
                                                     ['Revision', r.revision_number],
                                                     ['Review level', `Level ${r.review_level}`],
-                                                    ['Reviewer', r.reviewer],
                                                     ['Action', action.label],
-                                                    ['Date', formatDateTime(r.reviewed_at)],
+                                                    ['Reviewer', r.reviewer],
                                                     ['TAT', days(r.tat_days)],
-                                                    ['Rating', r.rating],
+                                                    ['Rating', r.rating === null || r.rating === undefined ? null : `${r.rating} of 5`],
+                                                ],
+                                                notes: [
                                                     ['Assessment', r.assessment],
                                                     ['Remarks', r.remarks],
                                                 ],
@@ -127,13 +131,16 @@ export default function DocumentHistory({ revisions, reviews }) {
                                     text={note}
                                     onClick={() =>
                                         view({
+                                            icon: FileTextIcon,
+                                            iconClassName: 'bg-muted text-muted-foreground',
                                             title: `Revision ${r.revision_number}`,
-                                            rows: [
+                                            subtitle: `${first ? 'Submitted' : 'Resubmitted'} by ${r.submitted_by} · ${formatDateTime(r.submitted_at)}`,
+                                            facts: [
                                                 ['Revision', r.revision_number],
-                                                [first ? 'Date Submitted' : 'Resubmitted', formatDateTime(r.submitted_at)],
+                                                [first ? 'Date Submitted' : 'Resubmitted', formatDate(r.submitted_at)],
                                                 [first ? 'Submitted by' : 'Resubmitted by', r.submitted_by],
-                                                ['Change note', note],
                                             ],
+                                            notes: [['Change note', note]],
                                         })
                                     }
                                 />
@@ -143,12 +150,7 @@ export default function DocumentHistory({ revisions, reviews }) {
                 </TabsContent>
             </Tabs>
 
-            <HistoryDialog
-                open={dialogOpen}
-                onOpenChange={setDialogOpen}
-                title={dialog?.title}
-                rows={dialog?.rows ?? []}
-            />
+            <HistoryDialog open={dialogOpen} onOpenChange={setDialogOpen} record={dialog} />
         </Card>
     );
 }

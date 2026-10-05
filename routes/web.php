@@ -38,6 +38,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('reviews.index');
     Route::get('/notifications', [NotificationController::class, 'index'])
         ->name('notifications.index');
+    Route::get('/notifications/recent', [NotificationController::class, 'recent'])
+        ->name('notifications.recent');
     Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])
         ->name('notifications.read-all');
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'read'])

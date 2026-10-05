@@ -13,7 +13,8 @@ import {
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Label } from '@/Components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
+import { ReviewerOption, dropdownProps, optionClassName } from '@/Components/SelectOptions';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Textarea } from '@/Components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { useForm } from '@inertiajs/react';
@@ -238,12 +239,15 @@ export default function ReviewPanel({ documentId, review }) {
                             <SelectTrigger id="l2_reviewer_id" className="w-full" aria-invalid={!!errors.l2_reviewer_id}>
                                 <SelectValue placeholder="Select a reviewer" />
                             </SelectTrigger>
-                            <SelectContent>
-                                {review.l2Reviewers.map((reviewer) => (
-                                    <SelectItem key={reviewer.id} value={String(reviewer.id)}>
-                                        {reviewer.name}
-                                    </SelectItem>
-                                ))}
+                            <SelectContent {...dropdownProps}>
+                                <SelectGroup>
+                                    <SelectLabel>Section Heads (L2)</SelectLabel>
+                                    {review.l2Reviewers.map((reviewer) => (
+                                        <SelectItem key={reviewer.id} value={String(reviewer.id)} className={optionClassName}>
+                                            <ReviewerOption name={reviewer.name} />
+                                        </SelectItem>
+                                    ))}
+                                </SelectGroup>
                             </SelectContent>
                         </Select>
                         <FieldError message={errors.l2_reviewer_id} />

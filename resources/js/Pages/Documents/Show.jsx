@@ -22,7 +22,7 @@ function Detail({ label, children, wide = false }) {
 }
 
 export default function Show({ document, revisions, reviews, lastReturn, canResubmit, preview, review }) {
-    const title = document.document_name ?? document.reference_number;
+    const title = document.reference_number;
 
     return (
         <AuthenticatedLayout
@@ -30,9 +30,9 @@ export default function Show({ document, revisions, reviews, lastReturn, canResu
             back={{ fallback: route(review ? 'reviews.index' : 'documents.index') }}
             description={
                 <>
-                    <span className="font-medium text-foreground">{document.reference_number}</span>
-                    <span aria-hidden="true">·</span>
                     <span>{document.document_type}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>Submitted by {document.submitted_by}</span>
                     <StatusBadge status={document.status} className="ml-1" />
                 </>
             }

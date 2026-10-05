@@ -1,4 +1,5 @@
 import GlobalSearch from '@/Components/GlobalSearch';
+import NotificationsBell from '@/Components/NotificationsBell';
 import { Alert, AlertDescription } from '@/Components/ui/alert';
 import { Avatar, AvatarFallback } from '@/Components/ui/avatar';
 import { Badge } from '@/Components/ui/badge';
@@ -29,7 +30,7 @@ import {
     useSidebar,
 } from '@/Components/ui/sidebar';
 import { Toaster } from '@/Components/ui/sonner';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/Components/ui/tooltip';
+import { TooltipProvider } from '@/Components/ui/tooltip';
 import { goBack } from '@/lib/navigation';
 import { ROLE_LABELS } from '@/lib/status';
 import { cn } from '@/lib/utils';
@@ -170,15 +171,44 @@ function AppSidebar({ user, unreadNotifications }) {
                                     <ChevronsUpDownIcon className="ml-auto text-muted-foreground" aria-hidden="true" />
                                 </SidebarMenuButton>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent side={isMobile ? 'top' : 'right'} align="end" className="min-w-56">
-                                <DropdownMenuLabel className="font-normal">
-                                    <div className="grid text-sm leading-tight">
-                                        <span className="truncate font-medium">{user.name}</span>
+                            <DropdownMenuContent
+                                side={isMobile ? 'top' : 'right'}
+                                align="end"
+                                sideOffset={8}
+                                className="w-64 p-1.5"
+                            >
+                                <DropdownMenuLabel className="flex items-center gap-3 px-2 py-2 font-normal text-foreground">
+                                    <Avatar className="size-9 rounded-lg">
+                                        <AvatarFallback className="rounded-lg bg-muted text-xs font-medium">
+                                            {initials(user.name)}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div className="grid min-w-0 leading-tight">
+                                        <span className="truncate text-sm font-medium">{user.name}</span>
                                         <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                                        <span className="mt-1 truncate text-[11px] text-muted-foreground">
+                                            {ROLE_LABELS[user.role]}
+                                        </span>
                                     </div>
                                 </DropdownMenuLabel>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onSelect={() => router.post(route('logout'))}>
+                                <DropdownMenuItem asChild className="gap-2.5 px-2 py-1.5">
+                                    <Link href={route('documents.index')}>
+                                        <FolderOpenIcon aria-hidden="true" />
+                                        My documents
+                                    </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild className="gap-2.5 px-2 py-1.5">
+                                    <Link href={route('notifications.index')}>
+                                        <BellIcon aria-hidden="true" />
+                                        Notifications
+                                    </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                    className="gap-2.5 px-2 py-1.5"
+                                    onSelect={() => router.post(route('logout'))}
+                                >
                                     <LogOutIcon aria-hidden="true" />
                                     Log out
                                 </DropdownMenuItem>
@@ -208,24 +238,6 @@ function AppSidebar({ user, unreadNotifications }) {
             </SidebarFooter>
             <SidebarRail />
         </Sidebar>
-    );
-}
-
-function NotificationsButton({ count }) {
-    return (
-        <Tooltip>
-            <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative" asChild>
-                    <Link href={route('notifications.index')} aria-label={`Notifications${count ? `, ${count} unread` : ''}`}>
-                        <BellIcon aria-hidden="true" />
-                        {count > 0 && (
-                            <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-destructive ring-2 ring-background" />
-                        )}
-                    </Link>
-                </Button>
-            </TooltipTrigger>
-            <TooltipContent>{count ? `${count} unread notifications` : 'Notifications'}</TooltipContent>
-        </Tooltip>
     );
 }
 
@@ -268,10 +280,11 @@ export default function AuthenticatedLayout({ title, description, actions, back,
                 <SidebarInset className="min-w-0 bg-muted/40">
                     <div className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-3 md:px-6">
                         <SidebarTrigger className="md:hidden" />
-                        <div className="flex min-w-0 flex-1 justify-center">
+                        {/* Search and notifications sit together in the right corner. */}
+                        <div className="ml-auto flex w-full min-w-0 max-w-lg items-center gap-1.5">
                             <GlobalSearch />
+                            <NotificationsBell unread={unreadNotifications} />
                         </div>
-                        <NotificationsButton count={unreadNotifications} />
                     </div>
 
                     <div className={cn('mx-auto w-full max-w-[1600px] flex-1 px-4 pt-5 pb-10 md:px-6', className)}>

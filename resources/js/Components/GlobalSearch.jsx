@@ -179,7 +179,7 @@ export default function GlobalSearch() {
     const resultsTitle = query || hasFilters ? 'Documents' : 'Recently submitted';
 
     return (
-        <div ref={rootRef} className="relative w-full max-w-xl">
+        <div ref={rootRef} className="relative min-w-0 flex-1">
             <SearchIcon
                 aria-hidden="true"
                 className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
@@ -191,7 +191,7 @@ export default function GlobalSearch() {
                 aria-expanded={open}
                 aria-controls="global-search-panel"
                 aria-label="Search documents"
-                placeholder="Search by name, reference number or type"
+                placeholder="Search by reference number or type"
                 value={values.search}
                 onFocus={() => setOpen(true)}
                 onChange={(e) => {
@@ -219,7 +219,7 @@ export default function GlobalSearch() {
             {open && (
                 <div
                     id="global-search-panel"
-                    className="absolute top-full right-0 left-0 z-50 mt-2 overflow-hidden rounded-xl bg-popover text-popover-foreground shadow-lg ring-1 ring-foreground/10 sm:-right-24 sm:-left-24"
+                    className="absolute top-full right-0 z-50 mt-2 w-[min(40rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl bg-popover text-popover-foreground shadow-lg ring-1 ring-foreground/10"
                 >
                     <div className="space-y-3 border-b p-4">
                         <FilterRow label="Status">
@@ -318,11 +318,9 @@ export default function GlobalSearch() {
                                         <FileTextIcon aria-hidden="true" className="size-4" />
                                     </span>
                                     <span className="min-w-0 flex-1">
-                                        <span className="block truncate text-sm font-medium">
-                                            {doc.document_name ?? doc.reference_number}
-                                        </span>
+                                        <span className="block truncate text-sm font-medium">{doc.reference_number}</span>
                                         <span className="block truncate text-xs text-muted-foreground">
-                                            {doc.reference_number} · {doc.document_type} · {formatDate(doc.submitted_at)}
+                                            {doc.document_type} · Submitted {formatDate(doc.submitted_at)}
                                         </span>
                                     </span>
                                     <StatusBadge status={doc.status} className="hidden sm:inline-flex" />

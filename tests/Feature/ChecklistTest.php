@@ -44,7 +44,6 @@ class ChecklistTest extends TestCase
     private function submitPayload(array $overrides = []): array
     {
         return [
-            'document_name' => 'Test document',
             'document_type' => 'Memo',
             'source_type' => 'link',
             'google_workspace_link' => 'https://docs.google.com/document/d/x/edit',

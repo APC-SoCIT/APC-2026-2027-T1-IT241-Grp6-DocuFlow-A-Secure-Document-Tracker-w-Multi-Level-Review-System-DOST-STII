@@ -9,7 +9,6 @@ import { FileSearchIcon } from 'lucide-react';
 
 const COLUMNS = [
     'Reference number',
-    'Document Name',
     'Document Type',
     'Date Submitted',
     'Status',
@@ -72,15 +71,6 @@ export default function DocumentTable({ documents, emptyMessage, showReviewState
                                         >
                                             {document.reference_number}
                                         </Link>
-                                    </TableCell>
-                                    <TableCell className="max-w-64">
-                                        {document.document_name ? (
-                                            <span className="block truncate" title={document.document_name}>
-                                                {document.document_name}
-                                            </span>
-                                        ) : (
-                                            <span className="text-muted-foreground">Untitled</span>
-                                        )}
                                     </TableCell>
                                     <TableCell className="text-muted-foreground">{document.document_type}</TableCell>
                                     <TableCell className="leading-tight">

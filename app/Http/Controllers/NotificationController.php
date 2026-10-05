@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Notification;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -22,13 +23,26 @@ class NotificationController extends Controller
             ->get();
 
         return Inertia::render('Notifications/Index', [
-            'notifications' => $notifications->map(fn (Notification $n) => [
-                'id' => $n->id,
-                'message' => $n->message,
-                'is_read' => $n->is_read,
-                'created_at' => $n->created_at,
-                'reference_number' => $n->document?->reference_number,
-            ]),
+            'notifications' => $notifications->map(fn (Notification $n) => $this->row($n)),
+        ]);
+    }
+
+    /**
+     * The latest few notifications and the unread count, for the bell's
+     * popover in the top bar.
+     */
+    public function recent(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        return response()->json([
+            'unread' => $user->notifications()->where('is_read', false)->count(),
+            'notifications' => $user->notifications()
+                ->with('document:id,reference_number')
+                ->latest('id')
+                ->limit(6)
+                ->get()
+                ->map(fn (Notification $n) => $this->row($n)),
         ]);
     }
 
@@ -52,6 +66,21 @@ class NotificationController extends Controller
     {
         $request->user()->notifications()->where('is_read', false)->update(['is_read' => true]);
 
-        return redirect()->route('notifications.index');
+        // Back to wherever it was clicked: the Notifications page or the bell's popover.
+        return redirect()->back(fallback: route('notifications.index'));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function row(Notification $notification): array
+    {
+        return [
+            'id' => $notification->id,
+            'message' => $notification->message,
+            'is_read' => $notification->is_read,
+            'created_at' => $notification->created_at,
+            'reference_number' => $notification->document?->reference_number,
+        ];
     }
 }

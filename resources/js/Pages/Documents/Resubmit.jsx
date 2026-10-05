@@ -20,7 +20,7 @@ export default function Resubmit({ document, lastReturn }) {
         change_note: '',
     });
     const { data, setData, post, processing, progress, errors, transform } = form;
-    const name = document.document_name ?? document.reference_number;
+    const name = document.reference_number;
     const backTo = route('documents.show', document.id);
 
     function submit(event) {
@@ -33,11 +33,7 @@ export default function Resubmit({ document, lastReturn }) {
         <AuthenticatedLayout
             title={`Resubmit ${name}`}
             description={
-                <>
-                    <span className="font-medium text-foreground">{document.reference_number}</span>
-                    <span aria-hidden="true">·</span>
-                    <span>Same reference number. It goes back to the Immediate Supervisor (L1) who reviewed it before.</span>
-                </>
+                'Same reference number. It goes back to the Immediate Supervisor (L1) who reviewed it before.'
             }
             back={{ fallback: backTo }}
         >

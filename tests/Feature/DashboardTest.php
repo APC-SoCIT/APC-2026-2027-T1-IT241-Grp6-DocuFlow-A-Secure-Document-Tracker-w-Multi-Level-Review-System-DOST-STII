@@ -43,7 +43,7 @@ class DashboardTest extends TestCase
 
     private function submit(User $l1): Document
     {
-        return app(WorkflowService::class)->submit($this->source, 'Memo', null, 'Test document', null, 'https://docs.google.com/document/d/x/edit', null, $l1->id);
+        return app(WorkflowService::class)->submit($this->source, 'Memo', null, null, 'https://docs.google.com/document/d/x/edit', null, $l1->id);
     }
 
     private function act(User $reviewer, Document $document, array $data): void

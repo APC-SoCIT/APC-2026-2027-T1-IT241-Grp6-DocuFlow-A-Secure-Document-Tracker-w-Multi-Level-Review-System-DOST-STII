@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'reference_number',
-    'document_name',
     'description',
     'document_type',
     'document_type_other',

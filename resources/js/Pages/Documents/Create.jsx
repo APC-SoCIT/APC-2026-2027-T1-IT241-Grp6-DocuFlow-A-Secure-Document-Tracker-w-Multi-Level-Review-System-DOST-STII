@@ -6,7 +6,8 @@ import { Button } from '@/Components/ui/button';
 import { Card } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
+import { DocumentTypeOption, ReviewerOption, dropdownProps, optionClassName } from '@/Components/SelectOptions';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Textarea } from '@/Components/ui/textarea';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { formatDateTime } from '@/lib/format';
@@ -33,7 +34,6 @@ function Optional() {
 
 export default function Create({ documentTypes, l1Reviewers }) {
     const form = useForm({
-        document_name: '',
         document_type: '',
         document_type_other: '',
         description: '',
@@ -64,19 +64,6 @@ export default function Create({ documentTypes, l1Reviewers }) {
                 <form onSubmit={submit} noValidate className="contents">
                     <div className="divide-y">
                         <FormSection title="Document" description="What you're submitting for review.">
-                            <div className="grid gap-2">
-                                <Label htmlFor="document_name">Document Name</Label>
-                                <Input
-                                    id="document_name"
-                                    value={data.document_name}
-                                    maxLength={150}
-                                    onChange={(e) => setData('document_name', e.target.value)}
-                                    aria-invalid={!!errors.document_name}
-                                    placeholder="e.g. Monthly Accomplishment Report: October 2026"
-                                />
-                                <FieldError message={errors.document_name} />
-                            </div>
-
                             <div className="grid gap-5 sm:grid-cols-2">
                                 <div className="grid content-start gap-2">
                                     <Label htmlFor="document_type">Document type</Label>
@@ -91,10 +78,10 @@ export default function Create({ documentTypes, l1Reviewers }) {
                                         >
                                             <SelectValue placeholder="Select a document type" />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent {...dropdownProps}>
                                             {documentTypes.map((type) => (
-                                                <SelectItem key={type} value={type}>
-                                                    {type}
+                                                <SelectItem key={type} value={type} className={optionClassName}>
+                                                    <DocumentTypeOption type={type} />
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -180,12 +167,19 @@ export default function Create({ documentTypes, l1Reviewers }) {
                                     >
                                         <SelectValue placeholder="Select a reviewer" />
                                     </SelectTrigger>
-                                    <SelectContent>
-                                        {l1Reviewers.map((reviewer) => (
-                                            <SelectItem key={reviewer.id} value={String(reviewer.id)}>
-                                                {reviewer.name}
-                                            </SelectItem>
-                                        ))}
+                                    <SelectContent {...dropdownProps}>
+                                        <SelectGroup>
+                                            <SelectLabel>Immediate Supervisors (L1)</SelectLabel>
+                                            {l1Reviewers.map((reviewer) => (
+                                                <SelectItem
+                                                    key={reviewer.id}
+                                                    value={String(reviewer.id)}
+                                                    className={optionClassName}
+                                                >
+                                                    <ReviewerOption name={reviewer.name} />
+                                                </SelectItem>
+                                            ))}
+                                        </SelectGroup>
                                     </SelectContent>
                                 </Select>
                                 <FieldError message={errors.l1_reviewer_id} />

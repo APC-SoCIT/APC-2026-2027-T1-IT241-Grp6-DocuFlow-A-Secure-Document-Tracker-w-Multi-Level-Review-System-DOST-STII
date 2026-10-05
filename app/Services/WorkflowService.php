@@ -119,16 +119,14 @@ class WorkflowService
         User $submitter,
         string $documentType,
         ?string $otherType,
-        string $documentName,
         ?string $description,
         ?string $link,
         ?string $filePath,
         int $l1ReviewerId,
     ): Document {
-        return DB::transaction(function () use ($submitter, $documentType, $otherType, $documentName, $description, $link, $filePath, $l1ReviewerId) {
+        return DB::transaction(function () use ($submitter, $documentType, $otherType, $description, $link, $filePath, $l1ReviewerId) {
             $document = Document::create([
                 'reference_number' => $this->nextReferenceNumber($documentType),
-                'document_name' => $documentName,
                 'description' => $description,
                 'document_type' => $documentType,
                 'document_type_other' => $documentType === 'Other' ? $otherType : null,
