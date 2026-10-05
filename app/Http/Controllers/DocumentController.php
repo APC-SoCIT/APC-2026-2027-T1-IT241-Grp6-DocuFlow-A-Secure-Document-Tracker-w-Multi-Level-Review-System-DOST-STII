@@ -8,6 +8,7 @@ use App\Services\DashboardService;
 use App\Services\TatRatingService;
 use App\Services\WorkflowService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -34,8 +35,61 @@ class DocumentController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
-        $canFilterByRole = in_array($user->role, [User::ROLE_L1, User::ROLE_L2], true);
+        $filters = $this->filtersFrom($request);
 
+        $documents = $this->filteredDocuments($user, $filters)
+            ->with('assignedReviewer:id,name')
+            ->latest('submitted_at')
+            ->get();
+
+        return Inertia::render('Documents/Index', [
+            'documents' => $documents->map(fn (Document $d) => $this->listRow($d)),
+            'filters' => (object) $filters,
+            'statusOptions' => Document::STATUS_LABELS,
+            'canFilterByRole' => $this->canFilterByRole($user),
+            // Unaffected by the filters: totals for the whole scope.
+            'dashboard' => $this->dashboard->forUser($user),
+        ]);
+    }
+
+    /**
+     * Quick results for the search box in the header: the same filters and
+     * access rules as My documents, newest first, a handful at a time.
+     */
+    public function search(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $documents = $this->filteredDocuments($user, $this->filtersFrom($request))
+            ->latest('submitted_at')
+            ->limit(6)
+            ->get();
+
+        return response()->json([
+            'documents' => $documents->map(fn (Document $d) => [
+                'id' => $d->id,
+                'reference_number' => $d->reference_number,
+                'document_name' => $d->document_name,
+                'document_type' => $d->typeLabel(),
+                'status' => $d->status,
+                'submitted_at' => $d->submitted_at,
+            ]),
+        ]);
+    }
+
+    private function canFilterByRole(User $user): bool
+    {
+        return in_array($user->role, [User::ROLE_L1, User::ROLE_L2], true);
+    }
+
+    /**
+     * The list filters from the query string, without empty values. The role
+     * filter only applies to L1 and L2.
+     *
+     * @return array<string, string>
+     */
+    private function filtersFrom(Request $request): array
+    {
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', Rule::in(array_keys(Document::STATUS_LABELS))],
@@ -43,16 +97,28 @@ class DocumentController extends Controller
             'to' => ['nullable', 'date_format:Y-m-d'],
             'role' => ['nullable', Rule::in(['submitted', 'assigned'])],
         ]);
-        if (! $canFilterByRole) {
+        if (! $this->canFilterByRole($request->user())) {
             unset($filters['role']);
         }
-        $filters = array_filter($filters, fn ($value) => $value !== null && $value !== '');
 
-        $documents = Document::with('assignedReviewer:id,name')
+        return array_filter($filters, fn ($value) => $value !== null && $value !== '');
+    }
+
+    /**
+     * Documents this account may see, narrowed by the filters. Search looks
+     * at the reference number, document name and document type.
+     *
+     * @param  array<string, string>  $filters
+     */
+    private function filteredDocuments(User $user, array $filters): Builder
+    {
+        return Document::query()
             ->visibleTo($user)
             ->when($filters['search'] ?? null, fn (Builder $q, string $search) => $q->where(fn (Builder $q) => $q
                 ->where('reference_number', 'like', "%{$search}%")
-                ->orWhere('document_type', 'like', "%{$search}%")))
+                ->orWhere('document_name', 'like', "%{$search}%")
+                ->orWhere('document_type', 'like', "%{$search}%")
+                ->orWhere('document_type_other', 'like', "%{$search}%")))
             ->when($filters['status'] ?? null, fn (Builder $q, string $status) => $q->where('status', $status))
             // Date Submitted range, whole days in Philippine time.
             ->when($filters['from'] ?? null, fn (Builder $q, string $from) => $q
@@ -62,18 +128,7 @@ class DocumentController extends Controller
             ->when(($filters['role'] ?? null) === 'submitted', fn (Builder $q) => $q->where('submitted_by', $user->id))
             ->when(($filters['role'] ?? null) === 'assigned', fn (Builder $q) => $q->where(fn (Builder $q) => $q
                 ->where('assigned_reviewer_id', $user->id)
-                ->orWhereHas('reviews', fn (Builder $r) => $r->where('reviewer_id', $user->id))))
-            ->latest('submitted_at')
-            ->get();
-
-        return Inertia::render('Documents/Index', [
-            'documents' => $documents->map(fn (Document $d) => $this->listRow($d)),
-            'filters' => (object) $filters,
-            'statusOptions' => Document::STATUS_LABELS,
-            'canFilterByRole' => $canFilterByRole,
-            // Unaffected by the filters: totals for the whole scope.
-            'dashboard' => $this->dashboard->forUser($user),
-        ]);
+                ->orWhereHas('reviews', fn (Builder $r) => $r->where('reviewer_id', $user->id))));
     }
 
     /**
@@ -116,7 +171,9 @@ class DocumentController extends Controller
             'document' => [
                 'id' => $document->id,
                 'reference_number' => $document->reference_number,
-                'document_type' => $document->document_type,
+                'document_name' => $document->document_name,
+                'description' => $document->description,
+                'document_type' => $document->typeLabel(),
                 'submitted_by' => $document->submitter->name,
                 'submitted_at' => $document->submitted_at,
                 'status' => $document->status,
@@ -168,6 +225,8 @@ class DocumentController extends Controller
         return [
             'id' => $document->id,
             'reference_number' => $document->reference_number,
+            'document_name' => $document->document_name,
+            'document_type' => $document->typeLabel(),
             'submitted_at' => $document->submitted_at,
             'status' => $document->status,
             'review_state' => $document->review_state,

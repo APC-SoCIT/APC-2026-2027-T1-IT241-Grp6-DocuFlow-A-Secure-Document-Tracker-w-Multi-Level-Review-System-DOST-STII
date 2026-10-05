@@ -48,6 +48,7 @@ class ReviewStateTest extends TestCase
     public function test_new_until_the_assigned_reviewer_opens_it_then_ongoing(): void
     {
         $this->actingAs($this->source)->post(route('documents.store'), [
+            'document_name' => 'Test document',
             'document_type' => 'Memo',
             'source_type' => 'link',
             'google_workspace_link' => 'https://docs.google.com/document/d/x/edit',
@@ -89,6 +90,7 @@ class ReviewStateTest extends TestCase
     public function test_return_clears_it_and_resubmit_resets_to_new(): void
     {
         $this->actingAs($this->source)->post(route('documents.store'), [
+            'document_name' => 'Test document',
             'document_type' => 'Memo',
             'source_type' => 'link',
             'google_workspace_link' => 'https://docs.google.com/document/d/x/edit',

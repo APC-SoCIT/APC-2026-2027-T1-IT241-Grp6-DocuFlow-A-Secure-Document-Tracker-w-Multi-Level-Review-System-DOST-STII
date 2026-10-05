@@ -21,6 +21,7 @@ export default function Index({ notifications }) {
     return (
         <AuthenticatedLayout
             title="Notifications"
+            description="Updates on documents you submitted or review."
             actions={
                 hasUnread && (
                     <Button variant="outline" disabled={markingAll} onClick={markAllRead}>
@@ -36,7 +37,7 @@ export default function Index({ notifications }) {
         >
             <Head title="Notifications" />
 
-            <Card className="py-0">
+            <Card className="max-w-4xl gap-0 py-0">
                 {notifications.length === 0 ? (
                     <div className="flex flex-col items-center px-6 py-16 text-center">
                         <BellIcon className="size-8 text-muted-foreground" aria-hidden="true" />
@@ -50,7 +51,7 @@ export default function Index({ notifications }) {
                                     href={route('notifications.read', notification.id)}
                                     method="post"
                                     as="button"
-                                    className="flex w-full items-start gap-4 px-4 py-4 text-left transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
+                                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
                                 >
                                     <span
                                         aria-hidden="true"
@@ -62,7 +63,7 @@ export default function Index({ notifications }) {
                                     <span className="min-w-0 flex-1">
                                         <span
                                             className={cn(
-                                                'block text-sm',
+                                                'block text-[13px]',
                                                 notification.is_read ? 'text-muted-foreground' : 'font-medium',
                                             )}
                                         >
@@ -74,7 +75,7 @@ export default function Index({ notifications }) {
                                         </span>
                                     </span>
                                     {notification.reference_number && (
-                                        <span className="flex shrink-0 items-center gap-1 text-sm font-medium">
+                                        <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-muted-foreground">
                                             Open
                                             <ChevronRightIcon className="size-4" aria-hidden="true" />
                                         </span>

@@ -4,3 +4,11 @@ export function formatDateTime(value) {
         timeStyle: 'short',
     });
 }
+
+export function formatDate(value) {
+    return new Date(value).toLocaleDateString('en-PH', { dateStyle: 'medium' });
+}
+
+export function formatTime(value) {
+    return new Date(value).toLocaleTimeString('en-PH', { timeStyle: 'short' });
+}

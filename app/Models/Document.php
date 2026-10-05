@@ -10,7 +10,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'reference_number',
+    'document_name',
+    'description',
     'document_type',
+    'document_type_other',
     'google_workspace_link',
     'file_path',
     'submitted_at',
@@ -96,6 +99,17 @@ class Document extends Model
         }
 
         return null;
+    }
+
+    /**
+     * The type as shown in the UI: what the submitter typed for "Other",
+     * otherwise the type from the fixed list.
+     */
+    public function typeLabel(): string
+    {
+        return $this->document_type === 'Other' && filled($this->document_type_other)
+            ? $this->document_type_other
+            : $this->document_type;
     }
 
     public function statusLabel(): string

@@ -44,6 +44,7 @@ class DocumentWorkflowTest extends TestCase
     private function submit(array $overrides = []): Document
     {
         $this->actingAs($this->source)->post(route('documents.store'), [
+            'document_name' => 'Test document',
             'document_type' => 'Memo',
             'source_type' => 'link',
             'google_workspace_link' => 'https://docs.google.com/document/d/abc123/edit',
@@ -226,6 +227,7 @@ class DocumentWorkflowTest extends TestCase
     {
         // A submitter can't pick themself as reviewer.
         $this->actingAs($this->source)->post(route('documents.store'), [
+            'document_name' => 'Test document',
             'document_type' => 'Memo',
             'source_type' => 'link',
             'google_workspace_link' => 'https://docs.google.com/document/d/abc/edit',
@@ -245,6 +247,7 @@ class DocumentWorkflowTest extends TestCase
     {
         $otherL2 = User::where('email', 'l2b@docuflow.test')->firstOrFail();
         $store = fn (User $submitter, User $l1) => $this->actingAs($submitter)->post(route('documents.store'), [
+            'document_name' => 'Test document',
             'document_type' => 'Report',
             'source_type' => 'link',
             'google_workspace_link' => 'https://docs.google.com/document/d/l1l2/edit',
@@ -317,6 +320,7 @@ class DocumentWorkflowTest extends TestCase
     public function test_upload_rules(): void
     {
         $post = fn (array $data) => $this->actingAs($this->source)->post(route('documents.store'), [
+            'document_name' => 'Test document',
             'document_type' => 'Report',
             'l1_reviewer_id' => $this->l1->id,
             ...$data,
@@ -336,6 +340,38 @@ class DocumentWorkflowTest extends TestCase
             ->assertSessionHasErrors('google_workspace_link');
         $post(['source_type' => 'link', 'google_workspace_link' => 'https://docs.google.com/spreadsheets/d/xyz/edit'])
             ->assertSessionHasNoErrors();
+    }
+
+    public function test_document_name_is_required_and_other_needs_its_type_typed(): void
+    {
+        $post = fn (array $data) => $this->actingAs($this->source)->post(route('documents.store'), [
+            'document_name' => 'Equipment Inventory Summary',
+            'document_type' => 'Memo',
+            'source_type' => 'link',
+            'google_workspace_link' => 'https://docs.google.com/document/d/x/edit',
+            'l1_reviewer_id' => $this->l1->id,
+            ...$data,
+        ]);
+
+        $post(['document_name' => ''])->assertSessionHasErrors(['document_name' => 'Enter the document name.']);
+        $post(['document_type' => 'Other'])
+            ->assertSessionHasErrors(['document_type_other' => 'Type what kind of document this is.']);
+
+        $post([
+            'document_type' => 'Other',
+            'document_type_other' => 'Equipment Inventory',
+            'description' => 'Laboratory equipment on hand.',
+        ])->assertSessionHasNoErrors();
+        $document = Document::latest('id')->firstOrFail();
+        $this->assertSame('Equipment Inventory Summary', $document->document_name);
+        $this->assertSame('Laboratory equipment on hand.', $document->description);
+        $this->assertSame('Equipment Inventory', $document->typeLabel());
+        // The reference number still uses the fixed type.
+        $this->assertStringStartsWith('OTHER-', $document->reference_number);
+
+        // The typed type is only kept for "Other".
+        $post(['document_type' => 'Memo', 'document_type_other' => 'Ignored'])->assertSessionHasNoErrors();
+        $this->assertNull(Document::latest('id')->firstOrFail()->document_type_other);
     }
 
     public function test_reference_numbers_count_up_per_type(): void

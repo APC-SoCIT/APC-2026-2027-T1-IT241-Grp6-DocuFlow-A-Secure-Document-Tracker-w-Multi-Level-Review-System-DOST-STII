@@ -40,6 +40,7 @@ class DocumentDetailTest extends TestCase
     private function submit(array $overrides = []): Document
     {
         $this->actingAs($this->source)->post(route('documents.store'), [
+            'document_name' => 'Test document',
             'document_type' => 'Memo',
             'source_type' => 'link',
             'google_workspace_link' => 'https://docs.google.com/document/d/abc123/edit',

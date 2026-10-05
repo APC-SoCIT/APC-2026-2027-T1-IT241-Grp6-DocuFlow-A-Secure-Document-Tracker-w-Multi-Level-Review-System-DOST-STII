@@ -115,12 +115,23 @@ class WorkflowService
      * First submission: new reference number, revision 1, assigned to the
      * chosen L1 at Level 1.
      */
-    public function submit(User $submitter, string $documentType, ?string $link, ?string $filePath, int $l1ReviewerId): Document
-    {
-        return DB::transaction(function () use ($submitter, $documentType, $link, $filePath, $l1ReviewerId) {
+    public function submit(
+        User $submitter,
+        string $documentType,
+        ?string $otherType,
+        string $documentName,
+        ?string $description,
+        ?string $link,
+        ?string $filePath,
+        int $l1ReviewerId,
+    ): Document {
+        return DB::transaction(function () use ($submitter, $documentType, $otherType, $documentName, $description, $link, $filePath, $l1ReviewerId) {
             $document = Document::create([
                 'reference_number' => $this->nextReferenceNumber($documentType),
+                'document_name' => $documentName,
+                'description' => $description,
                 'document_type' => $documentType,
+                'document_type_other' => $documentType === 'Other' ? $otherType : null,
                 'google_workspace_link' => $link,
                 'file_path' => $filePath,
                 'submitted_at' => now(),

@@ -18,6 +18,8 @@ Route::get('/dashboard', function (Request $request) {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/documents', [DocumentController::class, 'index'])
         ->name('documents.index');
+    Route::get('/documents/search', [DocumentController::class, 'search'])
+        ->name('documents.search');
     Route::get('/documents/create', [SubmissionController::class, 'create'])
         ->name('documents.create');
     Route::post('/documents', [SubmissionController::class, 'store'])

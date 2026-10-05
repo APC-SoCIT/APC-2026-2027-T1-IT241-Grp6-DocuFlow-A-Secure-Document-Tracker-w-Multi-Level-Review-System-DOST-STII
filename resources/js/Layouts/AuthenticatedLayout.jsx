@@ -1,6 +1,8 @@
+import GlobalSearch from '@/Components/GlobalSearch';
 import { Alert, AlertDescription } from '@/Components/ui/alert';
 import { Avatar, AvatarFallback } from '@/Components/ui/avatar';
 import { Badge } from '@/Components/ui/badge';
+import { Button } from '@/Components/ui/button';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -15,22 +17,26 @@ import {
     SidebarFooter,
     SidebarGroup,
     SidebarGroupContent,
+    SidebarGroupLabel,
     SidebarHeader,
     SidebarInset,
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
     SidebarProvider,
+    SidebarRail,
     SidebarTrigger,
     useSidebar,
 } from '@/Components/ui/sidebar';
 import { Toaster } from '@/Components/ui/sonner';
-import { TooltipProvider } from '@/Components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/Components/ui/tooltip';
+import { goBack } from '@/lib/navigation';
+import { ROLE_LABELS } from '@/lib/status';
+import { cn } from '@/lib/utils';
 import { Link, router, usePage } from '@inertiajs/react';
 import {
+    ArrowLeftIcon,
     BellIcon,
-    ChevronsLeftIcon,
-    ChevronsRightIcon,
     ChevronsUpDownIcon,
     ClipboardCheckIcon,
     FilePlusIcon,
@@ -38,6 +44,8 @@ import {
     FolderOpenIcon,
     LogOutIcon,
     OctagonXIcon,
+    PanelLeftCloseIcon,
+    PanelLeftOpenIcon,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -45,40 +53,17 @@ import { toast } from 'sonner';
 // Stored once for the whole app, so the rail keeps its state across pages.
 const SIDEBAR_STORAGE_KEY = 'docuflow.sidebar.expanded';
 
-const ROLE_LABELS = {
-    document_source: 'Document Source',
-    l1: 'Immediate Supervisor (L1)',
-    l2: 'Section Head (L2)',
-    l3: 'Division Chief (L3)',
-};
-
 function navItemsFor(role) {
     const isReviewer = role !== 'document_source';
     // Document Source, L1 and L2 can submit; the L3 can't.
     const canSubmit = role !== 'l3';
 
     return [
-        isReviewer && {
-            label: 'Review queue',
-            icon: ClipboardCheckIcon,
-            route: 'reviews.index',
-        },
+        isReviewer && { label: 'Review queue', icon: ClipboardCheckIcon, route: 'reviews.index' },
         // UC-01: submitted by them, or is/was assigned to them.
-        {
-            label: 'My documents',
-            icon: FolderOpenIcon,
-            route: 'documents.index',
-        },
-        canSubmit && {
-            label: 'Submit document',
-            icon: FilePlusIcon,
-            route: 'documents.create',
-        },
-        {
-            label: 'Notifications',
-            icon: BellIcon,
-            route: 'notifications.index',
-        },
+        { label: 'My documents', icon: FolderOpenIcon, route: 'documents.index' },
+        canSubmit && { label: 'Submit document', icon: FilePlusIcon, route: 'documents.create' },
+        { label: 'Notifications', icon: BellIcon, route: 'notifications.index' },
     ].filter(Boolean);
 }
 
@@ -104,22 +89,15 @@ function AppSidebar({ user, unreadNotifications }) {
 
     return (
         <Sidebar collapsible="icon">
-            <SidebarHeader>
+            <SidebarHeader className="h-14 justify-center border-b border-sidebar-border">
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild>
+                        <SidebarMenuButton asChild className="hover:bg-transparent active:bg-transparent">
                             <Link href={route('dashboard')}>
-                                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                                    <FileTextIcon className="size-4" aria-hidden="true" />
-                                </div>
-                                <div className="grid flex-1 text-left leading-tight">
-                                    <span className="truncate font-heading font-semibold">
-                                        DocuFlow
-                                    </span>
-                                    <span className="truncate text-xs text-muted-foreground">
-                                        Document tracker
-                                    </span>
-                                </div>
+                                <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground group-data-[collapsible=icon]:-ml-1">
+                                    <FileTextIcon className="size-3.5!" aria-hidden="true" />
+                                </span>
+                                <span className="font-heading text-[15px] font-semibold tracking-tight">DocuFlow</span>
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -128,12 +106,12 @@ function AppSidebar({ user, unreadNotifications }) {
 
             <SidebarContent>
                 <SidebarGroup>
+                    <SidebarGroupLabel>Menu</SidebarGroupLabel>
                     <SidebarGroupContent>
-                        <SidebarMenu>
+                        <SidebarMenu className="gap-0.5">
                             {navItemsFor(user.role).map((item) => {
                                 const count =
                                     item.route === 'notifications.index' ? unreadNotifications : 0;
-                                const countLabel = count > 99 ? '99+' : count;
                                 const Icon = item.icon;
 
                                 return (
@@ -141,30 +119,23 @@ function AppSidebar({ user, unreadNotifications }) {
                                         <SidebarMenuButton
                                             asChild
                                             isActive={route().current(item.route)}
-                                            tooltip={
-                                                count
-                                                    ? `${item.label} (${count} unread)`
-                                                    : item.label
-                                            }
+                                            tooltip={count ? `${item.label} (${count} unread)` : item.label}
+                                            className="h-9 text-[13px] text-sidebar-foreground/80 data-active:text-sidebar-foreground"
                                         >
                                             <Link href={route(item.route)}>
                                                 <span className="relative flex">
                                                     <Icon aria-hidden="true" />
                                                     {count > 0 && (
-                                                        <span className="absolute -top-0.5 -right-0.5 hidden size-2 rounded-full bg-destructive group-data-[collapsible=icon]:block" />
+                                                        <span className="absolute -top-1 -right-1 hidden size-2 rounded-full bg-destructive ring-2 ring-sidebar group-data-[collapsible=icon]:block" />
                                                     )}
                                                 </span>
                                                 <span>{item.label}</span>
                                                 {count > 0 && (
-                                                    <Badge className="ml-auto group-data-[collapsible=icon]:hidden">
-                                                        {countLabel}
+                                                    <Badge className="ml-auto h-4.5 min-w-4.5 px-1 text-[10px] tabular-nums group-data-[collapsible=icon]:hidden">
+                                                        {count > 99 ? '99+' : count}
                                                     </Badge>
                                                 )}
-                                                {count > 0 && (
-                                                    <span className="sr-only">
-                                                        , {count} unread
-                                                    </span>
-                                                )}
+                                                {count > 0 && <span className="sr-only">, {count} unread</span>}
                                             </Link>
                                         </SidebarMenuButton>
                                     </SidebarMenuItem>
@@ -175,7 +146,7 @@ function AppSidebar({ user, unreadNotifications }) {
                 </SidebarGroup>
             </SidebarContent>
 
-            <SidebarFooter>
+            <SidebarFooter className="gap-1 border-t border-sidebar-border">
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <DropdownMenu>
@@ -183,29 +154,27 @@ function AppSidebar({ user, unreadNotifications }) {
                                 <SidebarMenuButton
                                     size="lg"
                                     tooltip={`${user.name} · ${ROLE_LABELS[user.role]}`}
-                                    className="data-[state=open]:bg-sidebar-accent"
+                                    className="h-11 data-[state=open]:bg-sidebar-accent"
                                 >
-                                    <Avatar className="size-8 rounded-lg">
-                                        <AvatarFallback className="rounded-lg">
+                                    <Avatar className="size-7 rounded-md">
+                                        <AvatarFallback className="rounded-md bg-sidebar-accent text-[11px] font-medium">
                                             {initials(user.name)}
                                         </AvatarFallback>
                                     </Avatar>
-                                    <div className="grid flex-1 text-left text-sm leading-tight">
-                                        <span className="truncate font-medium">{user.name}</span>
-                                        <span className="truncate text-xs text-muted-foreground">
+                                    <div className="grid flex-1 text-left leading-tight">
+                                        <span className="truncate text-[13px] font-medium">{user.name}</span>
+                                        <span className="truncate text-[11px] text-muted-foreground">
                                             {ROLE_LABELS[user.role]}
                                         </span>
                                     </div>
-                                    <ChevronsUpDownIcon className="ml-auto" aria-hidden="true" />
+                                    <ChevronsUpDownIcon className="ml-auto text-muted-foreground" aria-hidden="true" />
                                 </SidebarMenuButton>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent side="right" align="end" className="min-w-56">
+                            <DropdownMenuContent side={isMobile ? 'top' : 'right'} align="end" className="min-w-56">
                                 <DropdownMenuLabel className="font-normal">
                                     <div className="grid text-sm leading-tight">
                                         <span className="truncate font-medium">{user.name}</span>
-                                        <span className="truncate text-xs text-muted-foreground">
-                                            {user.email}
-                                        </span>
+                                        <span className="truncate text-xs text-muted-foreground">{user.email}</span>
                                     </div>
                                 </DropdownMenuLabel>
                                 <DropdownMenuSeparator />
@@ -224,12 +193,12 @@ function AppSidebar({ user, unreadNotifications }) {
                                 onClick={toggleSidebar}
                                 aria-expanded={open}
                                 tooltip="Expand sidebar"
-                                className="text-muted-foreground"
+                                className="h-8 text-[13px] text-muted-foreground"
                             >
                                 {open ? (
-                                    <ChevronsLeftIcon aria-hidden="true" />
+                                    <PanelLeftCloseIcon aria-hidden="true" />
                                 ) : (
-                                    <ChevronsRightIcon aria-hidden="true" />
+                                    <PanelLeftOpenIcon aria-hidden="true" />
                                 )}
                                 <span>{open ? 'Collapse sidebar' : 'Expand sidebar'}</span>
                             </SidebarMenuButton>
@@ -237,16 +206,39 @@ function AppSidebar({ user, unreadNotifications }) {
                     )}
                 </SidebarMenu>
             </SidebarFooter>
+            <SidebarRail />
         </Sidebar>
     );
 }
 
+function NotificationsButton({ count }) {
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative" asChild>
+                    <Link href={route('notifications.index')} aria-label={`Notifications${count ? `, ${count} unread` : ''}`}>
+                        <BellIcon aria-hidden="true" />
+                        {count > 0 && (
+                            <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-destructive ring-2 ring-background" />
+                        )}
+                    </Link>
+                </Button>
+            </TooltipTrigger>
+            <TooltipContent>{count ? `${count} unread notifications` : 'Notifications'}</TooltipContent>
+        </Tooltip>
+    );
+}
+
 /**
- * App shell: collapsible sidebar (state remembered across the app), a page
- * header with a title and optional actions, and flash messages: success as a
+ * App shell: collapsible sidebar (state remembered across the app), a top
+ * bar with the global search, and a page header with an optional Back
+ * button, title, description and actions. Flash messages: success as a
  * toast, blocked actions as an alert above the page.
+ *
+ * back: { fallback: url } — goes to the previous page in the app, or to
+ * `fallback` when there is none.
  */
-export default function AuthenticatedLayout({ title, actions, children }) {
+export default function AuthenticatedLayout({ title, description, actions, back, children, className }) {
     const { auth, flash, unreadNotifications } = usePage().props;
     const [expanded, setExpanded] = useState(readSidebarExpanded);
 
@@ -265,26 +257,55 @@ export default function AuthenticatedLayout({ title, actions, children }) {
     }, [flash.success]);
 
     return (
-        <TooltipProvider>
-            <SidebarProvider open={expanded} onOpenChange={setExpanded}>
+        <TooltipProvider delayDuration={300}>
+            <SidebarProvider
+                open={expanded}
+                onOpenChange={setExpanded}
+                style={{ '--sidebar-width': '14rem' }}
+            >
                 <AppSidebar user={auth.user} unreadNotifications={unreadNotifications} />
 
-                <SidebarInset>
-                    <header className="flex flex-wrap items-center gap-3 px-4 pt-6 md:px-8">
-                        <SidebarTrigger className="-ml-1 md:hidden" />
-                        <h1 className="min-w-0 flex-1 font-heading text-2xl font-semibold tracking-tight">
-                            {title}
-                        </h1>
-                        {actions && <div className="flex items-center gap-2">{actions}</div>}
-                    </header>
+                <SidebarInset className="min-w-0 bg-muted/40">
+                    <div className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-3 md:px-6">
+                        <SidebarTrigger className="md:hidden" />
+                        <div className="flex min-w-0 flex-1 justify-center">
+                            <GlobalSearch />
+                        </div>
+                        <NotificationsButton count={unreadNotifications} />
+                    </div>
 
-                    <div className="flex-1 px-4 pt-6 pb-10 md:px-8">
+                    <div className={cn('mx-auto w-full max-w-[1600px] flex-1 px-4 pt-5 pb-10 md:px-6', className)}>
+                        <header className="mb-5">
+                            {back && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => goBack(back.fallback)}
+                                    className="mb-2 -ml-2 text-muted-foreground"
+                                >
+                                    <ArrowLeftIcon data-icon="inline-start" aria-hidden="true" />
+                                    Back
+                                </Button>
+                            )}
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <h1 className="font-heading text-xl font-semibold tracking-tight text-balance">
+                                        {title}
+                                    </h1>
+                                    {description && (
+                                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground">
+                                            {description}
+                                        </div>
+                                    )}
+                                </div>
+                                {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+                            </div>
+                        </header>
+
                         {flash.error && (
-                            <Alert variant="destructive" className="mb-6">
+                            <Alert variant="destructive" className="mb-5">
                                 <OctagonXIcon aria-hidden="true" />
-                                <AlertDescription className="text-destructive">
-                                    {flash.error}
-                                </AlertDescription>
+                                <AlertDescription className="text-destructive">{flash.error}</AlertDescription>
                             </Alert>
                         )}
 
