@@ -7,7 +7,7 @@ import { ROLE_FILTER_LABELS, STATUS_LABELS } from '@/lib/status';
 import { cn } from '@/lib/utils';
 import { router, usePage } from '@inertiajs/react';
 import axios from 'axios';
-import { ArrowRightIcon, FileTextIcon, HistoryIcon, SearchIcon, XIcon } from 'lucide-react';
+import { SearchIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const EMPTY = { search: '', status: '', role: '', from: '', to: '' };
@@ -219,7 +219,7 @@ export default function GlobalSearch() {
             {open && (
                 <div
                     id="global-search-panel"
-                    className="absolute top-full right-0 z-50 mt-2 w-[min(40rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl bg-popover text-popover-foreground shadow-lg ring-1 ring-foreground/10"
+                    className="absolute top-full right-0 left-0 z-50 mt-2 overflow-hidden rounded-xl bg-popover text-popover-foreground shadow-lg ring-1 ring-foreground/10"
                 >
                     <div className="space-y-3 border-b p-4">
                         <FilterRow label="Status">
@@ -284,9 +284,8 @@ export default function GlobalSearch() {
                                         key={term}
                                         type="button"
                                         onClick={() => setField('search', term)}
-                                        className="flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
+                                        className="flex w-full items-center rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
                                     >
-                                        <HistoryIcon aria-hidden="true" className="size-4 text-muted-foreground" />
                                         {term}
                                     </button>
                                 ))}
@@ -314,13 +313,10 @@ export default function GlobalSearch() {
                                     }}
                                     className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-muted"
                                 >
-                                    <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                                        <FileTextIcon aria-hidden="true" className="size-4" />
-                                    </span>
                                     <span className="min-w-0 flex-1">
                                         <span className="block truncate text-sm font-medium">{doc.reference_number}</span>
                                         <span className="block truncate text-xs text-muted-foreground">
-                                            {doc.document_type} · Submitted {formatDate(doc.submitted_at)}
+                                            {doc.document_type} · {formatDate(doc.submitted_at)}
                                         </span>
                                     </span>
                                     <StatusBadge status={doc.status} className="hidden sm:inline-flex" />
@@ -332,15 +328,13 @@ export default function GlobalSearch() {
                     <div className="flex items-center justify-between gap-2 border-t bg-muted/40 px-3 py-2">
                         {hasFilters || query ? (
                             <Button variant="ghost" size="sm" onClick={clearAll}>
-                                <XIcon data-icon="inline-start" aria-hidden="true" />
                                 Clear
                             </Button>
                         ) : (
-                            <span className="px-1 text-xs text-muted-foreground">Press Enter to see all results</span>
+                            <span />
                         )}
                         <Button variant="ghost" size="sm" onClick={seeAll}>
                             See all results
-                            <ArrowRightIcon data-icon="inline-end" aria-hidden="true" />
                         </Button>
                     </div>
                 </div>

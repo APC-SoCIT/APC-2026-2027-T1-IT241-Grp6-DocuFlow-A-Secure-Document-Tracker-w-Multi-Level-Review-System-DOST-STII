@@ -18,7 +18,6 @@ import {
     SidebarFooter,
     SidebarGroup,
     SidebarGroupContent,
-    SidebarGroupLabel,
     SidebarHeader,
     SidebarInset,
     SidebarMenu,
@@ -107,7 +106,6 @@ function AppSidebar({ user, unreadNotifications }) {
 
             <SidebarContent>
                 <SidebarGroup>
-                    <SidebarGroupLabel>Menu</SidebarGroupLabel>
                     <SidebarGroupContent>
                         <SidebarMenu className="gap-0.5">
                             {navItemsFor(user.role).map((item) => {
@@ -185,25 +183,11 @@ function AppSidebar({ user, unreadNotifications }) {
                                     </Avatar>
                                     <div className="grid min-w-0 leading-tight">
                                         <span className="truncate text-sm font-medium">{user.name}</span>
-                                        <span className="truncate text-xs text-muted-foreground">{user.email}</span>
-                                        <span className="mt-1 truncate text-[11px] text-muted-foreground">
+                                        <span className="truncate text-xs text-muted-foreground">
                                             {ROLE_LABELS[user.role]}
                                         </span>
                                     </div>
                                 </DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem asChild className="gap-2.5 px-2 py-1.5">
-                                    <Link href={route('documents.index')}>
-                                        <FolderOpenIcon aria-hidden="true" />
-                                        My documents
-                                    </Link>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem asChild className="gap-2.5 px-2 py-1.5">
-                                    <Link href={route('notifications.index')}>
-                                        <BellIcon aria-hidden="true" />
-                                        Notifications
-                                    </Link>
-                                </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                     className="gap-2.5 px-2 py-1.5"
@@ -243,14 +227,17 @@ function AppSidebar({ user, unreadNotifications }) {
 
 /**
  * App shell: collapsible sidebar (state remembered across the app), a top
- * bar with the global search, and a page header with an optional Back
- * button, title, description and actions. Flash messages: success as a
- * toast, blocked actions as an alert above the page.
+ * bar with the global search and notifications in the middle, and a page
+ * header with an optional Back button, title and actions. Both bars stay
+ * fixed while the page scrolls. Flash messages: success as a toast, blocked
+ * actions as an alert above the page.
  *
  * back: { fallback: url } — goes to the previous page in the app, or to
  * `fallback` when there is none.
+ * surface: true for pages without cards (forms), so they sit on the plain
+ * page background.
  */
-export default function AuthenticatedLayout({ title, description, actions, back, children, className }) {
+export default function AuthenticatedLayout({ title, description, actions, back, surface = false, children, className }) {
     const { auth, flash, unreadNotifications } = usePage().props;
     const [expanded, setExpanded] = useState(readSidebarExpanded);
 
@@ -277,44 +264,38 @@ export default function AuthenticatedLayout({ title, description, actions, back,
             >
                 <AppSidebar user={auth.user} unreadNotifications={unreadNotifications} />
 
-                <SidebarInset className="min-w-0 bg-muted/40">
-                    <div className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-3 md:px-6">
-                        <SidebarTrigger className="md:hidden" />
-                        {/* Search and notifications sit together in the right corner. */}
-                        <div className="ml-auto flex w-full min-w-0 max-w-lg items-center gap-1.5">
+                <SidebarInset className={cn('min-w-0', surface ? 'bg-background' : 'bg-muted/40')}>
+                    <div className="sticky top-0 z-30 grid h-14 shrink-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 border-b bg-background px-3 md:grid-cols-[1fr_minmax(0,40rem)_1fr] md:px-6">
+                        <div>
+                            <SidebarTrigger className="md:hidden" />
+                        </div>
+                        {/* Search and notifications sit together in the middle. */}
+                        <div className="flex min-w-0 items-center gap-1.5">
                             <GlobalSearch />
                             <NotificationsBell unread={unreadNotifications} />
                         </div>
                     </div>
 
-                    <div className={cn('mx-auto w-full max-w-[1600px] flex-1 px-4 pt-5 pb-10 md:px-6', className)}>
-                        <header className="mb-5">
+                    <header className="sticky top-14 z-20 border-b bg-background">
+                        <div className="mx-auto flex min-h-14 w-full max-w-[1600px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 md:px-6">
                             {back && (
                                 <Button
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => goBack(back.fallback)}
-                                    className="mb-2 -ml-2 text-muted-foreground"
+                                    className="-ml-2 text-muted-foreground"
                                 >
                                     <ArrowLeftIcon data-icon="inline-start" aria-hidden="true" />
                                     Back
                                 </Button>
                             )}
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                    <h1 className="font-heading text-xl font-semibold tracking-tight text-balance">
-                                        {title}
-                                    </h1>
-                                    {description && (
-                                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground">
-                                            {description}
-                                        </div>
-                                    )}
-                                </div>
-                                {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
-                            </div>
-                        </header>
+                            <h1 className="min-w-0 truncate font-heading text-lg font-semibold tracking-tight">{title}</h1>
+                            {description && <div className="flex items-center gap-2">{description}</div>}
+                            {actions && <div className="ml-auto flex shrink-0 items-center gap-2">{actions}</div>}
+                        </div>
+                    </header>
 
+                    <div className={cn('mx-auto w-full max-w-[1600px] flex-1 px-4 pt-5 pb-10 md:px-6', className)}>
                         {flash.error && (
                             <Alert variant="destructive" className="mb-5">
                                 <OctagonXIcon aria-hidden="true" />

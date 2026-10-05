@@ -60,7 +60,7 @@ function PreviewSurface({ preview, title, onOfficeError }) {
  * Left-hand preview panel with a toolbar (Full view, open/download), and a
  * file card with an "Open" button when the document can't be shown here.
  */
-export default function DocumentPreview({ preview, title, reference }) {
+export default function DocumentPreview({ preview, title }) {
     const [officeFailed, setOfficeFailed] = useState(false);
     const [fullView, setFullView] = useState(false);
     const handleOfficeError = useCallback(() => setOfficeFailed(true), []);
@@ -98,9 +98,7 @@ export default function DocumentPreview({ preview, title, reference }) {
     return (
         <Card className="h-full min-h-96 gap-0 py-0">
             <div className="flex h-11 shrink-0 items-center gap-2 border-b pr-2 pl-4">
-                <KindIcon aria-hidden="true" className="size-4 text-muted-foreground" />
                 <span className="text-[13px] font-medium">Preview</span>
-                <span className="truncate text-xs text-muted-foreground">{kind.label}</span>
                 <div className="ml-auto flex items-center gap-0.5">
                     {canRender && (
                         <Button variant="ghost" size="sm" onClick={() => setFullView(true)}>
@@ -131,11 +129,6 @@ export default function DocumentPreview({ preview, title, reference }) {
                         <Button variant="outline" className="mt-4" asChild>
                             <a href={preview.open_url} target={isDownload ? undefined : '_blank'} rel="noreferrer">
                                 Open
-                                {isDownload ? (
-                                    <DownloadIcon data-icon="inline-end" aria-hidden="true" />
-                                ) : (
-                                    <ExternalLinkIcon data-icon="inline-end" aria-hidden="true" />
-                                )}
                             </a>
                         </Button>
                     </div>
@@ -149,11 +142,10 @@ export default function DocumentPreview({ preview, title, reference }) {
                     className="top-0 left-0 flex h-svh w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none p-0 ring-0 sm:max-w-none"
                 >
                     <div className="flex h-12 shrink-0 items-center gap-3 bg-foreground px-4 text-background">
-                        <KindIcon aria-hidden="true" className="size-4 shrink-0 opacity-70" />
                         <div className="flex min-w-0 items-baseline gap-2">
                             <DialogTitle className="truncate text-sm font-semibold">{title}</DialogTitle>
                             <DialogDescription className="hidden truncate text-xs text-background/60 sm:block">
-                                {reference} · {kind.label}
+                                {kind.label}
                             </DialogDescription>
                         </div>
                         <div className="ml-auto flex items-center gap-2">
@@ -164,11 +156,6 @@ export default function DocumentPreview({ preview, title, reference }) {
                                 asChild
                             >
                                 <a href={preview.open_url} target={isDownload ? undefined : '_blank'} rel="noreferrer">
-                                    {isDownload ? (
-                                        <DownloadIcon data-icon="inline-start" aria-hidden="true" />
-                                    ) : (
-                                        <ExternalLinkIcon data-icon="inline-start" aria-hidden="true" />
-                                    )}
                                     {isDownload ? 'Download' : 'Open in new tab'}
                                 </a>
                             </Button>

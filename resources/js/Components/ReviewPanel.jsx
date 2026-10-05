@@ -11,23 +11,17 @@ import {
     AlertDialogTitle,
 } from '@/Components/ui/alert-dialog';
 import { Button } from '@/Components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/Components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Label } from '@/Components/ui/label';
 import { ReviewerOption, dropdownProps, optionClassName } from '@/Components/SelectOptions';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Textarea } from '@/Components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { useForm } from '@inertiajs/react';
-import { CircleCheckIcon, Loader2Icon } from 'lucide-react';
+import { Loader2Icon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const FINAL = 'Your review is recorded and can’t be changed afterwards.';
-
-const LEVEL_ROLES = {
-    1: 'Immediate Supervisor (L1)',
-    2: 'Section Head (L2)',
-    3: 'Division Chief (L3)',
-};
 
 // Same wording as the server-side validation messages.
 const MESSAGES = {
@@ -80,35 +74,35 @@ function FieldTrigger({ label, value, hint, error }) {
         <AccordionTrigger className="items-center py-3 hover:no-underline">
             <span className="flex min-w-0 flex-1 items-center gap-2 pr-2">
                 <span className="shrink-0 text-[13px] font-medium">{label}</span>
-                {filled ? (
-                    <>
-                        <CircleCheckIcon aria-hidden="true" className="size-3.5 shrink-0 text-status-approved" />
-                        <span className="truncate text-xs font-normal text-muted-foreground">{value}</span>
-                    </>
-                ) : (
-                    <span className={cn('truncate text-xs font-normal', error ? 'text-destructive' : 'text-muted-foreground')}>
-                        {hint}
-                    </span>
-                )}
+                <span
+                    className={cn(
+                        'truncate text-xs font-normal',
+                        error && !filled ? 'text-destructive' : 'text-muted-foreground',
+                    )}
+                >
+                    {filled ? value : hint}
+                </span>
             </span>
         </AccordionTrigger>
     );
 }
 
 /**
- * Right-column review card: assessment and remarks (an accordion, so the
- * column stays short), then the actions for this review level.
+ * The review form's state, shared by the review card (assessment, remarks,
+ * L2 choice) and the action buttons in the page header.
  * L1 = Return or Forward (to a chosen L2). L2 = Return or Endorse (to the
  * one seeded L3). L3 = Return or Approve. Every action asks for
- * confirmation first, since reviews are final.
+ * confirmation first, since reviews are final. `review` is null when this
+ * person can't review the document.
  */
-export default function ReviewPanel({ documentId, review }) {
-    const { data, setData, post, processing, errors, transform, setError, clearErrors } = useForm({
+export function useReview(documentId, review) {
+    const form = useForm({
         action: '',
         assessment: '',
         remarks: '',
         l2_reviewer_id: '',
     });
+    const { data, post, errors, transform, setError, clearErrors } = form;
     const [openFields, setOpenFields] = useState([]);
     // The action being confirmed stays set while the dialog animates closed.
     const [confirming, setConfirming] = useState(null);
@@ -116,12 +110,9 @@ export default function ReviewPanel({ documentId, review }) {
     const [submitted, setSubmitted] = useState(null);
 
     const names = {
-        l2Name: review.l2Reviewers?.find((r) => String(r.id) === data.l2_reviewer_id)?.name,
-        l3Name: review.l3ReviewerName,
+        l2Name: review?.l2Reviewers?.find((r) => String(r.id) === data.l2_reviewer_id)?.name,
+        l3Name: review?.l3ReviewerName,
     };
-    const nextAction = NEXT_ACTION[review.level];
-    const nextVerb = { 1: 'forward', 2: 'endorse', 3: 'approve' }[review.level];
-    const confirm = confirming ? actionConfig(confirming, names) : null;
 
     // Open whichever field the server (or the check below) flagged.
     useEffect(() => {
@@ -145,6 +136,8 @@ export default function ReviewPanel({ documentId, review }) {
         const missing = missingFor(action);
         if (Object.keys(missing).length) {
             setError(missing);
+            // The buttons are in the header; bring the fields that need work into view.
+            window.document.getElementById('review-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             return;
         }
         setConfirming(action);
@@ -153,19 +146,42 @@ export default function ReviewPanel({ documentId, review }) {
 
     function act(action) {
         setSubmitted(action);
-        transform((form) => ({ ...form, action }));
+        transform((values) => ({ ...values, action }));
         post(route('reviews.store', documentId), {
             // Stay put for field errors; scroll up when a blocked-action banner shows.
             preserveScroll: (page) => Object.keys(page.props.errors ?? {}).length > 0,
         });
     }
 
+    return {
+        review,
+        form,
+        names,
+        openFields,
+        setOpenFields,
+        confirming,
+        dialogOpen,
+        setDialogOpen,
+        submitted,
+        start,
+        act,
+    };
+}
+
+/**
+ * Return plus Forward / Endorse / Approve, and the confirmation dialog.
+ * Shown in the page header.
+ */
+export function ReviewActions({ controller }) {
+    const { review, form, names, confirming, dialogOpen, setDialogOpen, submitted, start, act } = controller;
+    const confirm = confirming ? actionConfig(confirming, names) : null;
+
     function actionButton(action) {
         const config = actionConfig(action, names);
-        const busy = processing && submitted === action;
+        const busy = form.processing && submitted === action;
 
         return (
-            <Button variant={config.variant} disabled={processing} onClick={() => start(action)}>
+            <Button variant={config.variant} disabled={form.processing} onClick={() => start(action)}>
                 {busy && <Loader2Icon className="animate-spin" aria-hidden="true" />}
                 {busy ? config.busy : config.label}
             </Button>
@@ -173,12 +189,40 @@ export default function ReviewPanel({ documentId, review }) {
     }
 
     return (
-        <Card className="gap-0 pb-0">
+        <>
+            {actionButton('return')}
+            {actionButton(NEXT_ACTION[review.level])}
+
+            <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{confirm?.title}</AlertDialogTitle>
+                        <AlertDialogDescription>{confirm?.description}</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction variant={confirm?.variant} onClick={() => act(confirming)}>
+                            {confirm?.label}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </>
+    );
+}
+
+/**
+ * Right-column review card: assessment and remarks as an accordion (so the
+ * column stays short), and at Level 1 the Section Head (L2) to forward to.
+ */
+export default function ReviewPanel({ controller }) {
+    const { review, form, openFields, setOpenFields } = controller;
+    const { data, setData, errors } = form;
+
+    return (
+        <Card id="review-card" className="scroll-mt-32 gap-0">
             <CardHeader className="pb-1">
                 <CardTitle className="text-sm font-semibold">Your review</CardTitle>
-                <CardDescription className="text-xs">
-                    Level {review.level} · {LEVEL_ROLES[review.level]}
-                </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-4">
@@ -187,7 +231,7 @@ export default function ReviewPanel({ documentId, review }) {
                         <FieldTrigger
                             label="Assessment"
                             value={data.assessment}
-                            hint={`Required to ${nextVerb}`}
+                            hint={`Required to ${NEXT_ACTION[review.level]}`}
                             error={errors.assessment}
                         />
                         <AccordionContent className="space-y-2 pb-3">
@@ -254,41 +298,8 @@ export default function ReviewPanel({ documentId, review }) {
                     </div>
                 )}
 
-                {review.level === 2 && (
-                    <p className="text-[13px] text-muted-foreground">
-                        Endorsing sends this document to the Division Chief (L3)
-                        {review.l3ReviewerName ? `, ${review.l3ReviewerName}` : ''}.
-                    </p>
-                )}
-
-                {review.level === 3 && (
-                    <p className="text-[13px] text-muted-foreground">
-                        Approving completes the review. The status becomes Approved - Complete.
-                    </p>
-                )}
-
                 <FieldError message={errors.action} />
             </CardContent>
-
-            <CardFooter className="mt-4 justify-end gap-2">
-                {actionButton('return')}
-                {actionButton(nextAction)}
-            </CardFooter>
-
-            <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>{confirm?.title}</AlertDialogTitle>
-                        <AlertDialogDescription>{confirm?.description}</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction variant={confirm?.variant} onClick={() => act(confirming)}>
-                            {confirm?.label}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </Card>
     );
 }

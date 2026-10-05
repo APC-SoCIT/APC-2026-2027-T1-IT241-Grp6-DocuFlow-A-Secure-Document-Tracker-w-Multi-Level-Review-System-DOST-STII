@@ -5,7 +5,6 @@ import { Card } from '@/Components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { formatDate, formatTime } from '@/lib/format';
 import { Link, router } from '@inertiajs/react';
-import { FileSearchIcon } from 'lucide-react';
 
 const COLUMNS = [
     'Reference number',
@@ -45,10 +44,7 @@ export default function DocumentTable({ documents, emptyMessage, showReviewState
                     {documents.length === 0 ? (
                         <TableRow className="hover:bg-transparent">
                             <TableCell colSpan={COLUMNS.length} className="h-40 text-center">
-                                <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                                    <FileSearchIcon aria-hidden="true" className="size-6" />
-                                    <span>{emptyMessage}</span>
-                                </div>
+                                <span className="text-muted-foreground">{emptyMessage}</span>
                             </TableCell>
                         </TableRow>
                     ) : (

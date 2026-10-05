@@ -4,7 +4,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { formatDateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { Head, Link, router } from '@inertiajs/react';
-import { BellIcon, CheckCheckIcon, ChevronRightIcon, Loader2Icon } from 'lucide-react';
+import { Loader2Icon } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Index({ notifications }) {
@@ -21,15 +21,10 @@ export default function Index({ notifications }) {
     return (
         <AuthenticatedLayout
             title="Notifications"
-            description="Updates on documents you submitted or review."
             actions={
                 hasUnread && (
                     <Button variant="outline" disabled={markingAll} onClick={markAllRead}>
-                        {markingAll ? (
-                            <Loader2Icon className="animate-spin" aria-hidden="true" />
-                        ) : (
-                            <CheckCheckIcon data-icon="inline-start" aria-hidden="true" />
-                        )}
+                        {markingAll && <Loader2Icon className="animate-spin" aria-hidden="true" />}
                         Mark all as read
                     </Button>
                 )
@@ -37,12 +32,9 @@ export default function Index({ notifications }) {
         >
             <Head title="Notifications" />
 
-            <Card className="max-w-4xl gap-0 py-0">
+            <Card className="gap-0 py-0">
                 {notifications.length === 0 ? (
-                    <div className="flex flex-col items-center px-6 py-16 text-center">
-                        <BellIcon className="size-8 text-muted-foreground" aria-hidden="true" />
-                        <p className="mt-3 text-muted-foreground">You have no notifications yet.</p>
-                    </div>
+                    <p className="px-6 py-16 text-center text-muted-foreground">You have no notifications yet.</p>
                 ) : (
                     <ul className="divide-y">
                         {notifications.map((notification) => (
@@ -51,7 +43,7 @@ export default function Index({ notifications }) {
                                     href={route('notifications.read', notification.id)}
                                     method="post"
                                     as="button"
-                                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
+                                    className="flex w-full items-start gap-3 px-5 py-3.5 text-left transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
                                 >
                                     <span
                                         aria-hidden="true"
@@ -75,9 +67,8 @@ export default function Index({ notifications }) {
                                         </span>
                                     </span>
                                     {notification.reference_number && (
-                                        <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-muted-foreground">
-                                            Open
-                                            <ChevronRightIcon className="size-4" aria-hidden="true" />
+                                        <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                                            {notification.reference_number}
                                         </span>
                                     )}
                                 </Link>

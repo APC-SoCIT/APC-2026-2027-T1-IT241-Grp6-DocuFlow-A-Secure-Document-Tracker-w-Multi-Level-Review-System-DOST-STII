@@ -9,8 +9,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/Components/ui/dialog';
-import { cn } from '@/lib/utils';
-import { LockIcon } from 'lucide-react';
 
 function isEmpty(value) {
     return value === null || value === undefined || value === '';
@@ -20,30 +18,17 @@ function isEmpty(value) {
  * Read-only details of one revision or review record. No edit or delete:
  * completed reviews and revisions can't be changed.
  *
- * record: { icon, iconClassName, title, subtitle, facts: [[label, value]], notes: [[label, text]] }
+ * record: { title, subtitle, facts: [[label, value]], notes: [[label, text]] }
  */
 export default function HistoryDialog({ open, onOpenChange, record }) {
-    const Icon = record?.icon;
-
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
-                <DialogHeader className="flex-row items-start gap-3 border-b px-5 py-4 pr-12">
-                    {Icon && (
-                        <span
-                            className={cn(
-                                'flex size-9 shrink-0 items-center justify-center rounded-full',
-                                record.iconClassName,
-                            )}
-                        >
-                            <Icon aria-hidden="true" className="size-4" />
-                        </span>
-                    )}
+                <DialogHeader className="border-b px-5 py-4 pr-12">
                     <div className="min-w-0 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                             <DialogTitle className="text-base font-semibold">{record?.title}</DialogTitle>
-                            <Badge variant="outline" className="gap-1 text-muted-foreground">
-                                <LockIcon data-icon="inline-start" aria-hidden="true" />
+                            <Badge variant="outline" className="text-muted-foreground">
                                 Read-only
                             </Badge>
                         </div>
@@ -75,10 +60,7 @@ export default function HistoryDialog({ open, onOpenChange, record }) {
                     ))}
                 </div>
 
-                <DialogFooter className="mx-0 mb-0 items-center sm:justify-between">
-                    <p className="hidden text-xs text-muted-foreground sm:block">
-                        Completed records can't be edited or deleted.
-                    </p>
+                <DialogFooter className="mx-0 mb-0">
                     <DialogClose asChild>
                         <Button variant="outline">Close</Button>
                     </DialogClose>

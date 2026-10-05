@@ -90,8 +90,6 @@ export default function DocumentHistory({ revisions, reviews }) {
                                         text={r.remarks}
                                         onClick={() =>
                                             view({
-                                                icon: action.icon,
-                                                iconClassName: action.className,
                                                 title: `${action.label} at Level ${r.review_level}`,
                                                 subtitle: `${r.reviewer} · ${formatDateTime(r.reviewed_at)}`,
                                                 facts: [
@@ -131,8 +129,6 @@ export default function DocumentHistory({ revisions, reviews }) {
                                     text={note}
                                     onClick={() =>
                                         view({
-                                            icon: FileTextIcon,
-                                            iconClassName: 'bg-muted text-muted-foreground',
                                             title: `Revision ${r.revision_number}`,
                                             subtitle: `${first ? 'Submitted' : 'Resubmitted'} by ${r.submitted_by} · ${formatDateTime(r.submitted_at)}`,
                                             facts: [

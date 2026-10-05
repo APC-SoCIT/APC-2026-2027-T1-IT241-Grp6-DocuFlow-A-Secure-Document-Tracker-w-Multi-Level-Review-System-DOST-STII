@@ -1,15 +1,15 @@
 import DocumentSourceField, { onlyChosenSource } from '@/Components/DocumentSourceField';
 import FieldError from '@/Components/FieldError';
-import FormSection from '@/Components/FormSection';
 import ReturnNotice from '@/Components/ReturnNotice';
 import SubmitButton from '@/Components/SubmitButton';
 import { Button } from '@/Components/ui/button';
-import { Card } from '@/Components/ui/card';
 import { Label } from '@/Components/ui/label';
 import { Textarea } from '@/Components/ui/textarea';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { goBack } from '@/lib/navigation';
 import { Head, useForm } from '@inertiajs/react';
+
+const FORM_ID = 'resubmit-document-form';
 
 export default function Resubmit({ document, lastReturn }) {
     const form = useForm({
@@ -32,53 +32,46 @@ export default function Resubmit({ document, lastReturn }) {
     return (
         <AuthenticatedLayout
             title={`Resubmit ${name}`}
-            description={
-                'Same reference number. It goes back to the Immediate Supervisor (L1) who reviewed it before.'
-            }
             back={{ fallback: backTo }}
+            surface
+            actions={
+                <>
+                    <Button variant="outline" onClick={() => goBack(backTo)}>
+                        Cancel
+                    </Button>
+                    <SubmitButton form={FORM_ID} processing={processing} progress={progress} busyLabel="Resubmitting…">
+                        Resubmit
+                    </SubmitButton>
+                </>
+            }
         >
             <Head title={`Resubmit ${name}`} />
 
-            <div className="max-w-4xl space-y-4">
-                {lastReturn && <ReturnNotice lastReturn={lastReturn} />}
+            <form id={FORM_ID} onSubmit={submit} noValidate className="grid gap-x-12 gap-y-10 lg:grid-cols-2">
+                <section className="grid content-start gap-5">
+                    {lastReturn && <ReturnNotice lastReturn={lastReturn} />}
 
-                <Card className="gap-0 py-0">
-                    <form onSubmit={submit} noValidate className="contents">
-                        <div className="divide-y">
-                            <FormSection title="Updated document" description="The new revision, with the changes the reviewer asked for.">
-                                <DocumentSourceField form={form} label="Source" />
-                            </FormSection>
+                    <div className="grid gap-2">
+                        <Label htmlFor="change_note" className="text-sm font-semibold">
+                            Change note
+                        </Label>
+                        <Textarea
+                            id="change_note"
+                            rows={6}
+                            value={data.change_note}
+                            onChange={(e) => setData('change_note', e.target.value)}
+                            placeholder="What did you change in response to the reviewer's remarks?"
+                            aria-invalid={!!errors.change_note}
+                            required
+                        />
+                        <FieldError message={errors.change_note} />
+                    </div>
+                </section>
 
-                            <FormSection title="Change note" description="Tell the reviewer what changed in this revision.">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="change_note" className="sr-only">
-                                        Change note
-                                    </Label>
-                                    <Textarea
-                                        id="change_note"
-                                        rows={4}
-                                        value={data.change_note}
-                                        onChange={(e) => setData('change_note', e.target.value)}
-                                        placeholder="What did you change in response to the reviewer's remarks?"
-                                        aria-invalid={!!errors.change_note}
-                                        required
-                                    />
-                                    <FieldError message={errors.change_note} />
-                                </div>
-                            </FormSection>
-                        </div>
-
-                        <div className="flex items-center justify-end gap-2 border-t bg-muted/40 px-5 py-3">
-                            <Button variant="outline" onClick={() => goBack(backTo)}>
-                                Cancel
-                            </Button>
-                            <SubmitButton processing={processing} progress={progress} busyLabel="Resubmitting…">
-                                Resubmit
-                            </SubmitButton>
-                        </div>
-                    </form>
-                </Card>
-            </div>
+                <section>
+                    <DocumentSourceField form={form} label="Updated file" />
+                </section>
+            </form>
         </AuthenticatedLayout>
     );
 }

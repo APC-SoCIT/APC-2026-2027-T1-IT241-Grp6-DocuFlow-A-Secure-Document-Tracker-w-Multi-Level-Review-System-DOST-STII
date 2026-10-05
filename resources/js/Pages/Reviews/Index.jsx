@@ -4,10 +4,7 @@ import { Head } from '@inertiajs/react';
 
 export default function Index({ documents }) {
     return (
-        <AuthenticatedLayout
-            title="Review queue"
-            description="Documents waiting for your review, oldest assignment first."
-        >
+        <AuthenticatedLayout title="Review queue">
             <Head title="Review queue" />
 
             <DocumentTable

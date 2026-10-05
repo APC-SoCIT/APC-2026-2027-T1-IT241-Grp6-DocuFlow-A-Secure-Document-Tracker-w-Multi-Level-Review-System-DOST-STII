@@ -3,13 +3,13 @@ import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/Components/ui/radio-group';
 import { cn } from '@/lib/utils';
-import { LinkIcon, UploadIcon } from 'lucide-react';
+import { UploadIcon } from 'lucide-react';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 const SOURCE_OPTIONS = [
-    { value: 'link', label: 'Google Workspace link', icon: LinkIcon },
-    { value: 'file', label: 'Upload a file', icon: UploadIcon },
+    { value: 'link', label: 'Google Workspace link' },
+    { value: 'file', label: 'Upload a file' },
 ];
 
 /**
@@ -35,7 +35,7 @@ export default function DocumentSourceField({ form, label = 'Document' }) {
 
     return (
         <fieldset className="grid gap-3">
-            <legend className="mb-2 text-sm font-medium">{label}</legend>
+            <legend className="mb-3 text-sm font-semibold">{label}</legend>
 
             <RadioGroup
                 value={data.source_type}
@@ -45,21 +45,16 @@ export default function DocumentSourceField({ form, label = 'Document' }) {
                 }}
                 className="grid-cols-2"
             >
-                {SOURCE_OPTIONS.map((option) => {
-                    const Icon = option.icon;
-
-                    return (
-                        <Label
-                            key={option.value}
-                            htmlFor={`source-${option.value}`}
-                            className="cursor-pointer rounded-lg border p-3 font-normal has-data-checked:border-primary has-data-checked:bg-muted/50"
-                        >
-                            <RadioGroupItem id={`source-${option.value}`} value={option.value} />
-                            <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
-                            {option.label}
-                        </Label>
-                    );
-                })}
+                {SOURCE_OPTIONS.map((option) => (
+                    <Label
+                        key={option.value}
+                        htmlFor={`source-${option.value}`}
+                        className="cursor-pointer rounded-lg border p-3 font-normal has-data-checked:border-primary has-data-checked:bg-muted/50"
+                    >
+                        <RadioGroupItem id={`source-${option.value}`} value={option.value} />
+                        {option.label}
+                    </Label>
+                ))}
             </RadioGroup>
 
             {data.source_type === 'link' ? (
@@ -75,9 +70,6 @@ export default function DocumentSourceField({ form, label = 'Document' }) {
                         onChange={(e) => setData('google_workspace_link', e.target.value)}
                         aria-invalid={!!errors.google_workspace_link}
                     />
-                    <p className="text-sm text-muted-foreground">
-                        A docs.google.com link (Docs, Sheets or Slides).
-                    </p>
                     <FieldError message={errors.google_workspace_link} />
                 </div>
             ) : (

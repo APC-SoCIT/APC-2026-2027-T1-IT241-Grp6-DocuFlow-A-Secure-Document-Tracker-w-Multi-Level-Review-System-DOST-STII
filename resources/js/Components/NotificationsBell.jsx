@@ -5,7 +5,7 @@ import { formatRelative } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { Link, router } from '@inertiajs/react';
 import axios from 'axios';
-import { ArrowRightIcon, BellIcon, BellOffIcon, CheckCheckIcon } from 'lucide-react';
+import { BellIcon } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 /**
@@ -72,7 +72,6 @@ export default function NotificationsBell({ unread }) {
                     </div>
                     {unread > 0 && (
                         <Button variant="ghost" size="sm" disabled={markingAll} onClick={markAllRead}>
-                            <CheckCheckIcon data-icon="inline-start" aria-hidden="true" />
                             Mark all as read
                         </Button>
                     )}
@@ -86,10 +85,9 @@ export default function NotificationsBell({ unread }) {
                             <Skeleton className="h-10 w-3/4" />
                         </div>
                     ) : items.length === 0 ? (
-                        <div className="flex flex-col items-center px-6 py-10 text-center">
-                            <BellOffIcon aria-hidden="true" className="size-6 text-muted-foreground" />
-                            <p className="mt-2 text-[13px] text-muted-foreground">You have no notifications yet.</p>
-                        </div>
+                        <p className="px-6 py-10 text-center text-[13px] text-muted-foreground">
+                            You have no notifications yet.
+                        </p>
                     ) : (
                         <ul className="divide-y">
                             {items.map((n) => (
@@ -135,7 +133,6 @@ export default function NotificationsBell({ unread }) {
                     <Button variant="ghost" className="w-full justify-center" asChild>
                         <Link href={route('notifications.index')} onClick={() => setOpen(false)}>
                             View all notifications
-                            <ArrowRightIcon data-icon="inline-end" aria-hidden="true" />
                         </Link>
                     </Button>
                 </div>

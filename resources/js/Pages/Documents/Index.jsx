@@ -1,11 +1,10 @@
-import DashboardSummary from '@/Components/DashboardSummary';
 import DocumentTable from '@/Components/DocumentTable';
 import { Button } from '@/Components/ui/button';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { formatDate } from '@/lib/format';
 import { ROLE_FILTER_LABELS } from '@/lib/status';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { FilePlusIcon, XIcon } from 'lucide-react';
+import { XIcon } from 'lucide-react';
 
 // The filters themselves live in the search box in the header; here they
 // show as chips that can be removed one by one or all at once.
@@ -54,7 +53,7 @@ function ActiveFilters({ filters, statusOptions }) {
     );
 }
 
-export default function Index({ documents, filters, statusOptions, dashboard }) {
+export default function Index({ documents, filters, statusOptions }) {
     const { auth } = usePage().props;
     const filtering = Object.keys(filters).length > 0;
     const canSubmit = auth.user.role !== 'l3';
@@ -62,17 +61,10 @@ export default function Index({ documents, filters, statusOptions, dashboard }) 
     return (
         <AuthenticatedLayout
             title="My documents"
-            description={
-                auth.user.role === 'document_source'
-                    ? 'Documents you submitted.'
-                    : 'Documents you submitted, or that are or were assigned to you.'
-            }
             actions={
                 canSubmit && (
                     <Button asChild>
-                        <Link href={route('documents.create')}>
-                            <FilePlusIcon data-icon="inline-start" aria-hidden="true" />
-                            Submit document
+                        <Link href={route('documents.create')}>Submit document
                         </Link>
                     </Button>
                 )
@@ -80,19 +72,18 @@ export default function Index({ documents, filters, statusOptions, dashboard }) 
         >
             <Head title="My documents" />
 
-            <div className="space-y-5">
-                <DashboardSummary dashboard={dashboard} />
-
-                <section className="space-y-3">
+            <div className="space-y-3">
+                {filtering && (
                     <div className="flex min-h-7 flex-wrap items-center justify-between gap-2">
                         <h2 className="text-sm font-semibold">
-                            {filtering ? 'Results' : 'All documents'}
+                            Results
                             <span className="ml-2 font-normal text-muted-foreground tabular-nums">
                                 {documents.length}
                             </span>
                         </h2>
                         <ActiveFilters filters={filters} statusOptions={statusOptions} />
                     </div>
+                )}
 
                     <DocumentTable
                         documents={documents}
@@ -104,7 +95,6 @@ export default function Index({ documents, filters, statusOptions, dashboard }) 
                                   : 'No documents have been submitted by you or assigned to you yet.'
                         }
                     />
-                </section>
             </div>
         </AuthenticatedLayout>
     );

@@ -5,11 +5,11 @@ import { Loader2Icon } from 'lucide-react';
  * Form submit button that shows what's happening while the request runs,
  * including the upload percentage when a file is being sent.
  */
-export default function SubmitButton({ processing, progress, busyLabel, children }) {
+export default function SubmitButton({ processing, progress, busyLabel, form, children }) {
     const percentage = progress?.percentage;
 
     return (
-        <Button type="submit" disabled={processing}>
+        <Button type="submit" form={form} disabled={processing}>
             {processing && <Loader2Icon className="animate-spin" aria-hidden="true" />}
             {!processing
                 ? children
