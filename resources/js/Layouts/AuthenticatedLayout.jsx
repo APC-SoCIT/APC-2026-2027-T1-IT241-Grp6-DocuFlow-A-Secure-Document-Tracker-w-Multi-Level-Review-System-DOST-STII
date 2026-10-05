@@ -1,6 +1,46 @@
-import { cn } from '@/lib/utils';
-import { Link, usePage } from '@inertiajs/react';
+import { Alert, AlertDescription } from '@/Components/ui/alert';
+import { Avatar, AvatarFallback } from '@/Components/ui/avatar';
+import { Badge } from '@/Components/ui/badge';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/Components/ui/dropdown-menu';
+import {
+    Sidebar,
+    SidebarContent,
+    SidebarFooter,
+    SidebarGroup,
+    SidebarGroupContent,
+    SidebarHeader,
+    SidebarInset,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    SidebarProvider,
+    SidebarTrigger,
+    useSidebar,
+} from '@/Components/ui/sidebar';
+import { Toaster } from '@/Components/ui/sonner';
+import { TooltipProvider } from '@/Components/ui/tooltip';
+import { Link, router, usePage } from '@inertiajs/react';
+import {
+    BellIcon,
+    ChevronsLeftIcon,
+    ChevronsRightIcon,
+    ChevronsUpDownIcon,
+    ClipboardCheckIcon,
+    FilePlusIcon,
+    FileTextIcon,
+    FolderOpenIcon,
+    LogOutIcon,
+    OctagonXIcon,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 // Stored once for the whole app, so the rail keeps its state across pages.
 const SIDEBAR_STORAGE_KEY = 'docuflow.sidebar.expanded';
@@ -18,11 +58,27 @@ function navItemsFor(role) {
     const canSubmit = role !== 'l3';
 
     return [
-        isReviewer && { label: 'Review queue', icon: 'fact_check', route: 'reviews.index' },
+        isReviewer && {
+            label: 'Review queue',
+            icon: ClipboardCheckIcon,
+            route: 'reviews.index',
+        },
         // UC-01: submitted by them, or is/was assigned to them.
-        { label: 'My documents', icon: 'folder_open', route: 'documents.index' },
-        canSubmit && { label: 'Submit document', icon: 'upload_file', route: 'documents.create' },
-        { label: 'Notifications', icon: 'notifications', route: 'notifications.index' },
+        {
+            label: 'My documents',
+            icon: FolderOpenIcon,
+            route: 'documents.index',
+        },
+        canSubmit && {
+            label: 'Submit document',
+            icon: FilePlusIcon,
+            route: 'documents.create',
+        },
+        {
+            label: 'Notifications',
+            icon: BellIcon,
+            route: 'notifications.index',
+        },
     ].filter(Boolean);
 }
 
@@ -34,23 +90,164 @@ function readSidebarExpanded() {
     }
 }
 
-function Icon({ name, className }) {
+function initials(name) {
+    return name
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0].toUpperCase())
+        .join('');
+}
+
+function AppSidebar({ user, unreadNotifications }) {
+    const { open, isMobile, toggleSidebar } = useSidebar();
+
     return (
-        <span
-            aria-hidden="true"
-            className={cn('material-symbols-outlined shrink-0 leading-none', className)}
-        >
-            {name}
-        </span>
+        <Sidebar collapsible="icon">
+            <SidebarHeader>
+                <SidebarMenu>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton size="lg" asChild>
+                            <Link href={route('dashboard')}>
+                                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                                    <FileTextIcon className="size-4" aria-hidden="true" />
+                                </div>
+                                <div className="grid flex-1 text-left leading-tight">
+                                    <span className="truncate font-heading font-semibold">
+                                        DocuFlow
+                                    </span>
+                                    <span className="truncate text-xs text-muted-foreground">
+                                        Document tracker
+                                    </span>
+                                </div>
+                            </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                </SidebarMenu>
+            </SidebarHeader>
+
+            <SidebarContent>
+                <SidebarGroup>
+                    <SidebarGroupContent>
+                        <SidebarMenu>
+                            {navItemsFor(user.role).map((item) => {
+                                const count =
+                                    item.route === 'notifications.index' ? unreadNotifications : 0;
+                                const countLabel = count > 99 ? '99+' : count;
+                                const Icon = item.icon;
+
+                                return (
+                                    <SidebarMenuItem key={item.route}>
+                                        <SidebarMenuButton
+                                            asChild
+                                            isActive={route().current(item.route)}
+                                            tooltip={
+                                                count
+                                                    ? `${item.label} (${count} unread)`
+                                                    : item.label
+                                            }
+                                        >
+                                            <Link href={route(item.route)}>
+                                                <span className="relative flex">
+                                                    <Icon aria-hidden="true" />
+                                                    {count > 0 && (
+                                                        <span className="absolute -top-0.5 -right-0.5 hidden size-2 rounded-full bg-destructive group-data-[collapsible=icon]:block" />
+                                                    )}
+                                                </span>
+                                                <span>{item.label}</span>
+                                                {count > 0 && (
+                                                    <Badge className="ml-auto group-data-[collapsible=icon]:hidden">
+                                                        {countLabel}
+                                                    </Badge>
+                                                )}
+                                                {count > 0 && (
+                                                    <span className="sr-only">
+                                                        , {count} unread
+                                                    </span>
+                                                )}
+                                            </Link>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                );
+                            })}
+                        </SidebarMenu>
+                    </SidebarGroupContent>
+                </SidebarGroup>
+            </SidebarContent>
+
+            <SidebarFooter>
+                <SidebarMenu>
+                    <SidebarMenuItem>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <SidebarMenuButton
+                                    size="lg"
+                                    tooltip={`${user.name} · ${ROLE_LABELS[user.role]}`}
+                                    className="data-[state=open]:bg-sidebar-accent"
+                                >
+                                    <Avatar className="size-8 rounded-lg">
+                                        <AvatarFallback className="rounded-lg">
+                                            {initials(user.name)}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div className="grid flex-1 text-left text-sm leading-tight">
+                                        <span className="truncate font-medium">{user.name}</span>
+                                        <span className="truncate text-xs text-muted-foreground">
+                                            {ROLE_LABELS[user.role]}
+                                        </span>
+                                    </div>
+                                    <ChevronsUpDownIcon className="ml-auto" aria-hidden="true" />
+                                </SidebarMenuButton>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent side="right" align="end" className="min-w-56">
+                                <DropdownMenuLabel className="font-normal">
+                                    <div className="grid text-sm leading-tight">
+                                        <span className="truncate font-medium">{user.name}</span>
+                                        <span className="truncate text-xs text-muted-foreground">
+                                            {user.email}
+                                        </span>
+                                    </div>
+                                </DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onSelect={() => router.post(route('logout'))}>
+                                    <LogOutIcon aria-hidden="true" />
+                                    Log out
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </SidebarMenuItem>
+
+                    {/* Desktop only: on phones the sidebar is a slide-over menu. */}
+                    {!isMobile && (
+                        <SidebarMenuItem>
+                            <SidebarMenuButton
+                                onClick={toggleSidebar}
+                                aria-expanded={open}
+                                tooltip="Expand sidebar"
+                                className="text-muted-foreground"
+                            >
+                                {open ? (
+                                    <ChevronsLeftIcon aria-hidden="true" />
+                                ) : (
+                                    <ChevronsRightIcon aria-hidden="true" />
+                                )}
+                                <span>{open ? 'Collapse sidebar' : 'Expand sidebar'}</span>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    )}
+                </SidebarMenu>
+            </SidebarFooter>
+        </Sidebar>
     );
 }
 
-const navItemClass =
-    'flex h-10 w-full items-center gap-3 rounded-md px-[10px] text-sm font-medium transition-colors';
-
-export default function AuthenticatedLayout({ header, children }) {
+/**
+ * App shell: collapsible sidebar (state remembered across the app), a page
+ * header with a title and optional actions, and flash messages: success as a
+ * toast, blocked actions as an alert above the page.
+ */
+export default function AuthenticatedLayout({ title, actions, children }) {
     const { auth, flash, unreadNotifications } = usePage().props;
-    const user = auth.user;
     const [expanded, setExpanded] = useState(readSidebarExpanded);
 
     useEffect(() => {
@@ -61,156 +258,42 @@ export default function AuthenticatedLayout({ header, children }) {
         }
     }, [expanded]);
 
+    useEffect(() => {
+        if (flash.success) {
+            toast.success(flash.success, { duration: 6000 });
+        }
+    }, [flash.success]);
+
     return (
-        <div className="flex min-h-screen bg-paper text-ink">
-            <aside
-                className={cn(
-                    'sticky top-0 flex h-screen shrink-0 flex-col bg-paper-dim px-2 py-4 transition-[width] duration-200',
-                    expanded ? 'w-60' : 'w-[60px]',
-                )}
-            >
-                <div className="mb-6 flex h-10 items-center gap-3 overflow-hidden px-[10px]">
-                    <Icon name="description" className="text-dost-blue" />
-                    {expanded && (
-                        <span className="whitespace-nowrap text-base font-bold">
-                            DocuFlow
-                        </span>
-                    )}
-                </div>
+        <TooltipProvider>
+            <SidebarProvider open={expanded} onOpenChange={setExpanded}>
+                <AppSidebar user={auth.user} unreadNotifications={unreadNotifications} />
 
-                <nav className="flex flex-col gap-1">
-                    {navItemsFor(user.role).map((item) => {
-                        const active = route().current(item.route);
-                        const count =
-                            item.route === 'notifications.index' ? unreadNotifications : 0;
-                        const countLabel = count > 99 ? '99+' : count;
-                        const bubbleColors = active
-                            ? 'bg-white text-dost-blue'
-                            : 'bg-dost-blue text-white';
+                <SidebarInset>
+                    <header className="flex flex-wrap items-center gap-3 px-4 pt-6 md:px-8">
+                        <SidebarTrigger className="-ml-1 md:hidden" />
+                        <h1 className="min-w-0 flex-1 font-heading text-2xl font-semibold tracking-tight">
+                            {title}
+                        </h1>
+                        {actions && <div className="flex items-center gap-2">{actions}</div>}
+                    </header>
 
-                        return (
-                            <Link
-                                key={item.route}
-                                href={route(item.route)}
-                                title={
-                                    expanded
-                                        ? undefined
-                                        : count
-                                          ? `${item.label} (${count} unread)`
-                                          : item.label
-                                }
-                                aria-current={active ? 'page' : undefined}
-                                className={cn(
-                                    navItemClass,
-                                    'overflow-hidden',
-                                    active
-                                        ? 'bg-dost-blue text-white hover:bg-dost-blue-deep'
-                                        : 'text-ink-muted hover:bg-paper hover:text-ink',
-                                )}
-                            >
-                                <span className="relative flex shrink-0">
-                                    <Icon name={item.icon} />
-                                    {count > 0 && !expanded && (
-                                        <span
-                                            className={cn(
-                                                'absolute -right-1.5 -top-1 min-w-4 rounded-full px-1 text-center text-[10px] font-bold leading-4',
-                                                bubbleColors,
-                                            )}
-                                        >
-                                            {countLabel}
-                                        </span>
-                                    )}
-                                </span>
-                                {expanded && (
-                                    <span className="whitespace-nowrap">{item.label}</span>
-                                )}
-                                {count > 0 && expanded && (
-                                    <span
-                                        className={cn(
-                                            'ml-auto min-w-5 rounded-full px-1.5 text-center text-xs font-bold leading-5',
-                                            bubbleColors,
-                                        )}
-                                    >
-                                        {countLabel}
-                                    </span>
-                                )}
-                                {count > 0 && <span className="sr-only">, {count} unread</span>}
-                            </Link>
-                        );
-                    })}
-                </nav>
-
-                <div className="mt-auto flex flex-col gap-1">
-                    <div
-                        className="flex min-h-10 items-center gap-3 overflow-hidden px-[10px] py-1"
-                        title={expanded ? undefined : `${user.name} · ${ROLE_LABELS[user.role]}`}
-                    >
-                        <Icon name="account_circle" className="text-ink-muted" />
-                        {expanded && (
-                            <div className="min-w-0">
-                                <div className="truncate text-sm font-medium">{user.name}</div>
-                                <div className="truncate text-xs text-ink-muted">
-                                    {ROLE_LABELS[user.role]}
-                                </div>
-                            </div>
+                    <div className="flex-1 px-4 pt-6 pb-10 md:px-8">
+                        {flash.error && (
+                            <Alert variant="destructive" className="mb-6">
+                                <OctagonXIcon aria-hidden="true" />
+                                <AlertDescription className="text-destructive">
+                                    {flash.error}
+                                </AlertDescription>
+                            </Alert>
                         )}
+
+                        {children}
                     </div>
+                </SidebarInset>
 
-                    <Link
-                        href={route('logout')}
-                        method="post"
-                        as="button"
-                        title={expanded ? undefined : 'Log out'}
-                        className={cn(
-                            navItemClass,
-                            'overflow-hidden text-ink-muted hover:bg-paper hover:text-ink',
-                        )}
-                    >
-                        <Icon name="logout" />
-                        {expanded && <span className="whitespace-nowrap">Log out</span>}
-                    </Link>
-
-                    <button
-                        type="button"
-                        onClick={() => setExpanded((value) => !value)}
-                        aria-expanded={expanded}
-                        aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
-                        title={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
-                        className={cn(
-                            navItemClass,
-                            'text-ink-muted hover:bg-paper hover:text-ink',
-                        )}
-                    >
-                        <Icon name={expanded ? 'chevron_left' : 'chevron_right'} />
-                    </button>
-                </div>
-            </aside>
-
-            <div className="min-w-0 flex-1">
-                {header && <header className="px-8 pt-8">{header}</header>}
-
-                {flash.success && (
-                    <div
-                        role="status"
-                        className="mx-8 mt-6 flex items-center gap-3 rounded-lg bg-stamp-green-bg px-4 py-3 text-sm font-medium text-stamp-green"
-                    >
-                        <Icon name="check_circle" />
-                        {flash.success}
-                    </div>
-                )}
-
-                {flash.error && (
-                    <div
-                        role="alert"
-                        className="mx-8 mt-6 flex items-center gap-3 rounded-lg bg-stamp-rust-bg px-4 py-3 text-sm font-medium text-stamp-rust"
-                    >
-                        <Icon name="error" />
-                        {flash.error}
-                    </div>
-                )}
-
-                <main>{children}</main>
-            </div>
-        </div>
+                <Toaster position="top-right" />
+            </SidebarProvider>
+        </TooltipProvider>
     );
 }

@@ -9,12 +9,10 @@ export default function Index({ documents, filters, statusOptions, canFilterByRo
     const filtering = Object.keys(filters).length > 0;
 
     return (
-        <AuthenticatedLayout
-            header={<h1 className="text-2xl font-medium text-ink">My documents</h1>}
-        >
+        <AuthenticatedLayout title="My documents">
             <Head title="My documents" />
 
-            <div className="space-y-6 px-8 py-6">
+            <div className="space-y-6">
                 <DocumentFilters
                     filters={filters}
                     statusOptions={statusOptions}

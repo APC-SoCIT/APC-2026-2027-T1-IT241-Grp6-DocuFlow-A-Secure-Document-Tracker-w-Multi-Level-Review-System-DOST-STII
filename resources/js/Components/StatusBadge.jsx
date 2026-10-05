@@ -1,29 +1,44 @@
+import { Badge } from '@/Components/ui/badge';
 import { cn } from '@/lib/utils';
+import { CircleCheckIcon, ClockIcon, Undo2Icon } from 'lucide-react';
 
-// Stamp colors per CLAUDE.md; labels use the use case documents' exact wording.
+// Labels use the use case documents' exact wording. Colors (app.css custom
+// section) and icons keep pending, returned and approved easy to tell apart.
+const PENDING = { className: 'bg-status-pending-bg text-status-pending', icon: ClockIcon };
+
 const STATUSES = {
-    pending_l1_review: { label: 'Pending Level 1 Review', className: 'bg-stamp-amber-bg text-stamp-amber' },
-    pending_l2_review: { label: 'Pending Level 2 Review', className: 'bg-stamp-amber-bg text-stamp-amber' },
-    pending_l3_review: { label: 'Pending Level 3 Review', className: 'bg-stamp-amber-bg text-stamp-amber' },
-    returned_to_source: { label: 'Returned to Source', className: 'bg-stamp-rust-bg text-stamp-rust' },
-    approved_complete: { label: 'Approved - Complete', className: 'bg-stamp-green-bg text-stamp-green' },
+    pending_l1_review: { label: 'Pending Level 1 Review', ...PENDING },
+    pending_l2_review: { label: 'Pending Level 2 Review', ...PENDING },
+    pending_l3_review: { label: 'Pending Level 3 Review', ...PENDING },
+    returned_to_source: {
+        label: 'Returned to Source',
+        className: 'bg-status-returned-bg text-status-returned',
+        icon: Undo2Icon,
+    },
+    approved_complete: {
+        label: 'Approved - Complete',
+        className: 'bg-status-approved-bg text-status-approved',
+        icon: CircleCheckIcon,
+    },
 };
 
 export default function StatusBadge({ status, className }) {
-    const { label, className: colors } = STATUSES[status] ?? {
-        label: status,
-        className: 'bg-paper-dim text-ink-muted',
-    };
+    const config = STATUSES[status];
+
+    if (!config) {
+        return (
+            <Badge variant="secondary" className={className}>
+                {status}
+            </Badge>
+        );
+    }
+
+    const Icon = config.icon;
 
     return (
-        <span
-            className={cn(
-                'inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium',
-                colors,
-                className,
-            )}
-        >
-            {label}
-        </span>
+        <Badge className={cn(config.className, className)}>
+            <Icon data-icon="inline-start" aria-hidden="true" />
+            {config.label}
+        </Badge>
     );
 }

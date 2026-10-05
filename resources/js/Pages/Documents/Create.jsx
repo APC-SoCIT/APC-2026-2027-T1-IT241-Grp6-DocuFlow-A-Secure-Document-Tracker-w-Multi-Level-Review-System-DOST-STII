@@ -1,9 +1,10 @@
 import DocumentSourceField, { onlyChosenSource } from '@/Components/DocumentSourceField';
 import FieldError from '@/Components/FieldError';
-import { Button, buttonVariants } from '@/Components/ui/button';
-import { Card, CardContent } from '@/Components/ui/card';
+import SubmitButton from '@/Components/SubmitButton';
+import { Button } from '@/Components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Label } from '@/Components/ui/label';
-import { NativeSelect } from '@/Components/ui/native-select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 
@@ -15,7 +16,7 @@ export default function Create({ documentTypes, l1Reviewers }) {
         file: null,
         l1_reviewer_id: '',
     });
-    const { data, setData, post, processing, errors, transform } = form;
+    const { data, setData, post, processing, progress, errors, transform } = form;
 
     function submit(event) {
         event.preventDefault();
@@ -24,74 +25,81 @@ export default function Create({ documentTypes, l1Reviewers }) {
     }
 
     return (
-        <AuthenticatedLayout
-            header={<h1 className="text-2xl font-medium text-ink">Submit document</h1>}
-        >
+        <AuthenticatedLayout title="Submit document">
             <Head title="Submit document" />
 
-            <div className="px-8 py-6">
-                <Card className="max-w-2xl">
-                    <CardContent>
-                        <form onSubmit={submit} className="space-y-6" noValidate>
-                            <div>
-                                <Label htmlFor="document_type">Document type</Label>
-                                <NativeSelect
+            <Card className="max-w-2xl">
+                <form onSubmit={submit} noValidate className="contents">
+                    <CardHeader>
+                        <CardTitle>New document</CardTitle>
+                        <CardDescription>
+                            It gets a reference number when you submit it and goes to the
+                            Immediate Supervisor (L1) you choose.
+                        </CardDescription>
+                    </CardHeader>
+
+                    <CardContent className="grid gap-6">
+                        <div className="grid gap-2">
+                            <Label htmlFor="document_type">Document type</Label>
+                            <Select
+                                value={data.document_type}
+                                onValueChange={(value) => setData('document_type', value)}
+                            >
+                                <SelectTrigger
                                     id="document_type"
-                                    value={data.document_type}
-                                    onChange={(e) => setData('document_type', e.target.value)}
+                                    className="w-full"
                                     aria-invalid={!!errors.document_type}
-                                    required
                                 >
-                                    <option value="" disabled>
-                                        Select a document type
-                                    </option>
+                                    <SelectValue placeholder="Select a document type" />
+                                </SelectTrigger>
+                                <SelectContent>
                                     {documentTypes.map((type) => (
-                                        <option key={type} value={type}>
+                                        <SelectItem key={type} value={type}>
                                             {type}
-                                        </option>
+                                        </SelectItem>
                                     ))}
-                                </NativeSelect>
-                                <FieldError message={errors.document_type} />
-                            </div>
+                                </SelectContent>
+                            </Select>
+                            <FieldError message={errors.document_type} />
+                        </div>
 
-                            <DocumentSourceField form={form} />
+                        <DocumentSourceField form={form} />
 
-                            <div>
-                                <Label htmlFor="l1_reviewer_id">Immediate Supervisor (L1)</Label>
-                                <NativeSelect
+                        <div className="grid gap-2">
+                            <Label htmlFor="l1_reviewer_id">Immediate Supervisor (L1)</Label>
+                            <Select
+                                value={data.l1_reviewer_id}
+                                onValueChange={(value) => setData('l1_reviewer_id', value)}
+                            >
+                                <SelectTrigger
                                     id="l1_reviewer_id"
-                                    value={data.l1_reviewer_id}
-                                    onChange={(e) => setData('l1_reviewer_id', e.target.value)}
+                                    className="w-full"
                                     aria-invalid={!!errors.l1_reviewer_id}
-                                    required
                                 >
-                                    <option value="" disabled>
-                                        Select a reviewer
-                                    </option>
+                                    <SelectValue placeholder="Select a reviewer" />
+                                </SelectTrigger>
+                                <SelectContent>
                                     {l1Reviewers.map((reviewer) => (
-                                        <option key={reviewer.id} value={reviewer.id}>
+                                        <SelectItem key={reviewer.id} value={String(reviewer.id)}>
                                             {reviewer.name}
-                                        </option>
+                                        </SelectItem>
                                     ))}
-                                </NativeSelect>
-                                <FieldError message={errors.l1_reviewer_id} />
-                            </div>
-
-                            <div className="flex justify-end gap-3 border-t border-border pt-6">
-                                <Link
-                                    href={route('documents.index')}
-                                    className={buttonVariants({ variant: 'outlined' })}
-                                >
-                                    Cancel
-                                </Link>
-                                <Button type="submit" disabled={processing}>
-                                    Submit document
-                                </Button>
-                            </div>
-                        </form>
+                                </SelectContent>
+                            </Select>
+                            <FieldError message={errors.l1_reviewer_id} />
+                        </div>
                     </CardContent>
-                </Card>
-            </div>
+
+                    <CardFooter className="justify-end gap-3">
+                        <Button variant="outline" asChild>
+                            <Link href={route('documents.index')}>Cancel</Link>
+                        </Button>
+                        <SubmitButton processing={processing} progress={progress} busyLabel="Submitting…">
+                            Submit document
+                        </SubmitButton>
+                    </CardFooter>
+                </form>
+            </Card>
         </AuthenticatedLayout>
     );
 }

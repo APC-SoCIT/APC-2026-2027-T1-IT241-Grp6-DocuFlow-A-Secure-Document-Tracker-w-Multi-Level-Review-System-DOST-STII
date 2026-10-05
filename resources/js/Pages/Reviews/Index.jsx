@@ -4,18 +4,14 @@ import { Head } from '@inertiajs/react';
 
 export default function Index({ documents }) {
     return (
-        <AuthenticatedLayout
-            header={<h1 className="text-2xl font-medium text-ink">Review queue</h1>}
-        >
+        <AuthenticatedLayout title="Review queue">
             <Head title="Review queue" />
 
-            <div className="px-8 py-6">
-                <DocumentTable
-                    documents={documents}
-                    showReviewState
-                    emptyMessage="No documents are waiting for your review."
-                />
-            </div>
+            <DocumentTable
+                documents={documents}
+                showReviewState
+                emptyMessage="No documents are waiting for your review."
+            />
         </AuthenticatedLayout>
     );
 }

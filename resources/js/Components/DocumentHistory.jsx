@@ -1,6 +1,7 @@
 import HistoryDialog from '@/Components/HistoryDialog';
-import { buttonVariants } from '@/Components/ui/button';
+import { Button } from '@/Components/ui/button';
 import { Card, CardHeader, CardTitle } from '@/Components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { formatDateTime } from '@/lib/format';
 import { useState } from 'react';
 
@@ -17,55 +18,48 @@ function days(n) {
 
 function HistoryTable({ title, columns, rows, emptyMessage, onView }) {
     return (
-        <Card className="overflow-hidden">
-            <CardHeader className="pb-4">
+        <Card className="pb-0">
+            <CardHeader>
                 <CardTitle>{title}</CardTitle>
             </CardHeader>
-            <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                    <thead className="border-y border-border">
-                        <tr>
-                            {[...columns, ''].map((column) => (
-                                <th
-                                    key={column}
-                                    scope="col"
-                                    className="whitespace-nowrap px-6 py-3 font-medium text-ink-muted"
-                                >
-                                    {column}
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                        {rows.length === 0 ? (
-                            <tr>
-                                <td colSpan={columns.length + 1} className="px-6 py-8 text-center text-ink-muted">
-                                    {emptyMessage}
-                                </td>
-                            </tr>
-                        ) : (
-                            rows.map((row) => (
-                                <tr key={row.key} className="transition-colors hover:bg-paper">
-                                    {row.cells.map((cell, i) => (
-                                        <td key={i} className="max-w-xs truncate whitespace-nowrap px-6 py-3 text-ink">
-                                            {cell ?? '—'}
-                                        </td>
-                                    ))}
-                                    <td className="whitespace-nowrap px-6 py-3 text-right">
-                                        <button
-                                            type="button"
-                                            onClick={() => onView(row)}
-                                            className={buttonVariants({ variant: 'text' })}
-                                        >
-                                            View
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        {columns.map((column, i) => (
+                            <TableHead key={column} className={i === 0 ? 'pl-4' : undefined}>
+                                {column}
+                            </TableHead>
+                        ))}
+                        <TableHead className="pr-4">
+                            <span className="sr-only">Actions</span>
+                        </TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {rows.length === 0 ? (
+                        <TableRow>
+                            <TableCell colSpan={columns.length + 1} className="h-24 text-center text-muted-foreground">
+                                {emptyMessage}
+                            </TableCell>
+                        </TableRow>
+                    ) : (
+                        rows.map((row) => (
+                            <TableRow key={row.key}>
+                                {row.cells.map((cell, i) => (
+                                    <TableCell key={i} className={i === 0 ? 'max-w-xs truncate pl-4' : 'max-w-xs truncate'}>
+                                        {cell ?? '—'}
+                                    </TableCell>
+                                ))}
+                                <TableCell className="pr-4 text-right">
+                                    <Button variant="ghost" size="sm" onClick={() => onView(row)}>
+                                        View
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    )}
+                </TableBody>
+            </Table>
         </Card>
     );
 }
@@ -75,7 +69,13 @@ function HistoryTable({ title, columns, rows, emptyMessage, onView }) {
  * full record in a dialog.
  */
 export default function DocumentHistory({ revisions, reviews }) {
-    const [open, setOpen] = useState(null); // { title, rows } or null
+    // The last opened record stays set while the dialog animates closed.
+    const [dialog, setDialog] = useState(null); // { title, rows }
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const view = (row) => {
+        setDialog(row.dialog);
+        setDialogOpen(true);
+    };
 
     const revisionRows = revisions.map((r) => ({
         key: r.id,
@@ -128,17 +128,22 @@ export default function DocumentHistory({ revisions, reviews }) {
                 columns={['Revision', 'Date', 'Submitted by', 'Change note']}
                 rows={revisionRows}
                 emptyMessage="No revisions yet."
-                onView={(row) => setOpen(row.dialog)}
+                onView={view}
             />
             <HistoryTable
                 title="Review remarks history"
                 columns={['Revision', 'Review level', 'Reviewer', 'Action', 'Date']}
                 rows={reviewRows}
                 emptyMessage="No reviews yet."
-                onView={(row) => setOpen(row.dialog)}
+                onView={view}
             />
 
-            <HistoryDialog title={open?.title} rows={open?.rows ?? null} onClose={() => setOpen(null)} />
+            <HistoryDialog
+                open={dialogOpen}
+                onOpenChange={setDialogOpen}
+                title={dialog?.title}
+                rows={dialog?.rows ?? []}
+            />
         </div>
     );
 }

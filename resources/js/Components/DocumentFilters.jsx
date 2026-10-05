@@ -2,11 +2,15 @@ import { Button } from '@/Components/ui/button';
 import { Card, CardContent } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
-import { NativeSelect } from '@/Components/ui/native-select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { router } from '@inertiajs/react';
+import { SearchIcon, XIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 const EMPTY = { search: '', status: '', from: '', to: '', role: '' };
+
+// Select items can't have an empty value, so "no filter" is "all" in the UI.
+const ALL = 'all';
 
 /**
  * Filter bar for the document list: search, status, Date Submitted range
@@ -26,7 +30,7 @@ export default function DocumentFilters({ filters, statusOptions, canFilterByRol
     }
 
     function update(field, value) {
-        const next = { ...values, [field]: value };
+        const next = { ...values, [field]: value === ALL ? '' : value };
         setValues(next);
         // Search waits for a pause in typing (below); everything else applies now.
         if (field !== 'search') {
@@ -48,16 +52,14 @@ export default function DocumentFilters({ filters, statusOptions, canFilterByRol
 
     return (
         <Card>
-            <CardContent className="flex flex-wrap items-end gap-4 p-4">
-                <div className="min-w-56 flex-1">
+            <CardContent className="flex flex-wrap items-end gap-4">
+                <div className="grid min-w-56 flex-1 gap-2">
                     <Label htmlFor="filter-search">Search</Label>
                     <div className="relative">
-                        <span
+                        <SearchIcon
                             aria-hidden="true"
-                            className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-ink-muted"
-                        >
-                            search
-                        </span>
+                            className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+                        />
                         <Input
                             id="filter-search"
                             type="search"
@@ -65,28 +67,29 @@ export default function DocumentFilters({ filters, statusOptions, canFilterByRol
                             value={values.search}
                             onChange={(e) => update('search', e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && apply(values)}
-                            className="pl-10"
+                            className="pl-8"
                         />
                     </div>
                 </div>
 
-                <div className="w-52">
+                <div className="grid w-52 gap-2">
                     <Label htmlFor="filter-status">Status</Label>
-                    <NativeSelect
-                        id="filter-status"
-                        value={values.status}
-                        onChange={(e) => update('status', e.target.value)}
-                    >
-                        <option value="">All statuses</option>
-                        {Object.entries(statusOptions).map(([value, label]) => (
-                            <option key={value} value={value}>
-                                {label}
-                            </option>
-                        ))}
-                    </NativeSelect>
+                    <Select value={values.status || ALL} onValueChange={(v) => update('status', v)}>
+                        <SelectTrigger id="filter-status" className="w-full">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value={ALL}>All statuses</SelectItem>
+                            {Object.entries(statusOptions).map(([value, label]) => (
+                                <SelectItem key={value} value={value}>
+                                    {label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
 
-                <div className="w-40">
+                <div className="grid w-40 gap-2">
                     <Label htmlFor="filter-from">Submitted from</Label>
                     <Input
                         id="filter-from"
@@ -97,7 +100,7 @@ export default function DocumentFilters({ filters, statusOptions, canFilterByRol
                     />
                 </div>
 
-                <div className="w-40">
+                <div className="grid w-40 gap-2">
                     <Label htmlFor="filter-to">Submitted to</Label>
                     <Input
                         id="filter-to"
@@ -109,28 +112,30 @@ export default function DocumentFilters({ filters, statusOptions, canFilterByRol
                 </div>
 
                 {canFilterByRole && (
-                    <div className="w-44">
+                    <div className="grid w-44 gap-2">
                         <Label htmlFor="filter-role">Role</Label>
-                        <NativeSelect
-                            id="filter-role"
-                            value={values.role}
-                            onChange={(e) => update('role', e.target.value)}
-                        >
-                            <option value="">All my documents</option>
-                            <option value="submitted">Submitted by me</option>
-                            <option value="assigned">Assigned to me</option>
-                        </NativeSelect>
+                        <Select value={values.role || ALL} onValueChange={(v) => update('role', v)}>
+                            <SelectTrigger id="filter-role" className="w-full">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value={ALL}>All my documents</SelectItem>
+                                <SelectItem value="submitted">Submitted by me</SelectItem>
+                                <SelectItem value="assigned">Assigned to me</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 )}
 
                 <Button
-                    variant="outlined"
+                    variant="outline"
                     disabled={!hasFilters}
                     onClick={() => {
                         setValues(EMPTY);
                         apply(EMPTY);
                     }}
                 >
+                    <XIcon data-icon="inline-start" aria-hidden="true" />
                     Clear
                 </Button>
             </CardContent>

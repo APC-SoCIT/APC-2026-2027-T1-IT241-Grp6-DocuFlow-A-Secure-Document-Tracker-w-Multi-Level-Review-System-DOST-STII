@@ -1,11 +1,12 @@
 import DocumentSourceField, { onlyChosenSource } from '@/Components/DocumentSourceField';
 import FieldError from '@/Components/FieldError';
-import { Button, buttonVariants } from '@/Components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
+import ReturnNotice from '@/Components/ReturnNotice';
+import SubmitButton from '@/Components/SubmitButton';
+import { Button } from '@/Components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Label } from '@/Components/ui/label';
 import { Textarea } from '@/Components/ui/textarea';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { formatDateTime } from '@/lib/format';
 import { Head, Link, useForm } from '@inertiajs/react';
 
 export default function Resubmit({ document, lastReturn }) {
@@ -16,7 +17,7 @@ export default function Resubmit({ document, lastReturn }) {
         file: null,
         change_note: '',
     });
-    const { data, setData, post, processing, errors, transform } = form;
+    const { data, setData, post, processing, progress, errors, transform } = form;
 
     function submit(event) {
         event.preventDefault();
@@ -25,39 +26,26 @@ export default function Resubmit({ document, lastReturn }) {
     }
 
     return (
-        <AuthenticatedLayout
-            header={
-                <h1 className="text-2xl font-medium text-ink">
-                    Resubmit {document.reference_number}
-                </h1>
-            }
-        >
+        <AuthenticatedLayout title={`Resubmit ${document.reference_number}`}>
             <Head title={`Resubmit ${document.reference_number}`} />
 
-            <div className="space-y-6 px-8 py-6">
-                {lastReturn && (
-                    <Card className="max-w-2xl">
-                        <CardHeader>
-                            <CardTitle>Returned by {lastReturn.reviewer}</CardTitle>
-                            <p className="mt-1 text-sm text-ink-muted">
-                                Level {lastReturn.review_level} ·{' '}
-                                {formatDateTime(lastReturn.returned_at)}
-                            </p>
-                        </CardHeader>
-                        <CardContent className="pt-3">
-                            <p className="whitespace-pre-line text-sm text-ink">
-                                {lastReturn.remarks || 'No remarks were given.'}
-                            </p>
-                        </CardContent>
-                    </Card>
-                )}
+            <div className="max-w-2xl space-y-6">
+                {lastReturn && <ReturnNotice lastReturn={lastReturn} />}
 
-                <Card className="max-w-2xl">
-                    <CardContent>
-                        <form onSubmit={submit} className="space-y-6" noValidate>
+                <Card>
+                    <form onSubmit={submit} noValidate className="contents">
+                        <CardHeader>
+                            <CardTitle>New revision</CardTitle>
+                            <CardDescription>
+                                Same reference number. It goes back to the Immediate Supervisor (L1)
+                                who reviewed it before, at Level 1.
+                            </CardDescription>
+                        </CardHeader>
+
+                        <CardContent className="grid gap-6">
                             <DocumentSourceField form={form} label="Updated document" />
 
-                            <div>
+                            <div className="grid gap-2">
                                 <Label htmlFor="change_note">Change note</Label>
                                 <Textarea
                                     id="change_note"
@@ -69,20 +57,17 @@ export default function Resubmit({ document, lastReturn }) {
                                 />
                                 <FieldError message={errors.change_note} />
                             </div>
+                        </CardContent>
 
-                            <div className="flex justify-end gap-3 border-t border-border pt-6">
-                                <Link
-                                    href={route('documents.show', document.id)}
-                                    className={buttonVariants({ variant: 'outlined' })}
-                                >
-                                    Cancel
-                                </Link>
-                                <Button type="submit" disabled={processing}>
-                                    Resubmit
-                                </Button>
-                            </div>
-                        </form>
-                    </CardContent>
+                        <CardFooter className="justify-end gap-3">
+                            <Button variant="outline" asChild>
+                                <Link href={route('documents.show', document.id)}>Cancel</Link>
+                            </Button>
+                            <SubmitButton processing={processing} progress={progress} busyLabel="Resubmitting…">
+                                Resubmit
+                            </SubmitButton>
+                        </CardFooter>
+                    </form>
                 </Card>
             </div>
         </AuthenticatedLayout>

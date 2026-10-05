@@ -3,5 +3,5 @@ export default function FieldError({ message }) {
         return null;
     }
 
-    return <p className="mt-1.5 text-sm text-stamp-rust">{message}</p>;
+    return <p className="text-sm text-destructive">{message}</p>;
 }

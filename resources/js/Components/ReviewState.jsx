@@ -1,9 +1,10 @@
-import { cn } from '@/lib/utils';
+import { Badge } from '@/Components/ui/badge';
 
 // Story #27: New = assigned, not opened yet; Ongoing = opened, no action yet.
+// Both stay neutral so they don't compete with the status badge.
 const STATES = {
-    new: { label: 'New', className: 'border-dost-blue text-dost-blue' },
-    ongoing: { label: 'Ongoing', className: 'border-border text-ink-muted' },
+    new: { label: 'New', variant: 'outline' },
+    ongoing: { label: 'Ongoing', variant: 'secondary' },
 };
 
 export default function ReviewState({ state, className }) {
@@ -13,14 +14,8 @@ export default function ReviewState({ state, className }) {
     }
 
     return (
-        <span
-            className={cn(
-                'inline-flex items-center whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium',
-                config.className,
-                className,
-            )}
-        >
+        <Badge variant={config.variant} className={className}>
             {config.label}
-        </span>
+        </Badge>
     );
 }

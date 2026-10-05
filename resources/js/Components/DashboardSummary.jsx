@@ -1,4 +1,5 @@
-import { Card, CardHeader, CardTitle } from '@/Components/ui/card';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 
 const ROLE_LABELS = {
     l1: 'Immediate Supervisor (L1)',
@@ -6,13 +7,15 @@ const ROLE_LABELS = {
     l3: 'Division Chief (L3)',
 };
 
-// White card, normal border, small gray label, large number (CLAUDE.md).
+// Plain stat card: small muted label, large number. No icons, no charts.
 function Stat({ label, value }) {
     return (
-        <div className="rounded-lg border border-border bg-white px-5 py-4">
-            <div className="text-xs font-medium text-ink-muted">{label}</div>
-            <div className="mt-1 text-2xl font-medium text-ink">{value}</div>
-        </div>
+        <Card>
+            <CardHeader>
+                <CardDescription>{label}</CardDescription>
+                <CardTitle className="text-2xl font-semibold tabular-nums">{value}</CardTitle>
+            </CardHeader>
+        </Card>
     );
 }
 
@@ -55,34 +58,34 @@ export default function DashboardSummary({ dashboard }) {
                 <Stat label="Average Rating" value={noData(dashboard.average_rating)} />
             </div>
 
-            <Card className="overflow-hidden">
-                <CardHeader className="pb-4">
+            <Card className="pb-0">
+                <CardHeader>
                     <CardTitle>{dashboard.title}: workload</CardTitle>
-                    <p className="mt-1 text-sm text-ink-muted">
+                    <CardDescription>
                         Incomplete reviews currently assigned to each reviewer. New, Ongoing,
                         Pending and the averages above cover the same reviewers.
-                    </p>
+                    </CardDescription>
                 </CardHeader>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="border-y border-border">
-                            <tr>
-                                <th scope="col" className="px-6 py-3 font-medium text-ink-muted">Reviewer</th>
-                                <th scope="col" className="px-6 py-3 font-medium text-ink-muted">Role</th>
-                                <th scope="col" className="px-6 py-3 text-right font-medium text-ink-muted">Workload</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                            {dashboard.workload.map((row) => (
-                                <tr key={row.name}>
-                                    <td className="whitespace-nowrap px-6 py-3 text-ink">{row.name}</td>
-                                    <td className="whitespace-nowrap px-6 py-3 text-ink-muted">{ROLE_LABELS[row.role]}</td>
-                                    <td className="px-6 py-3 text-right font-medium text-ink">{row.count}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="pl-4">Reviewer</TableHead>
+                            <TableHead>Role</TableHead>
+                            <TableHead className="pr-4 text-right">Workload</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {dashboard.workload.map((row) => (
+                            <TableRow key={row.name}>
+                                <TableCell className="pl-4">{row.name}</TableCell>
+                                <TableCell className="text-muted-foreground">{ROLE_LABELS[row.role]}</TableCell>
+                                <TableCell className="pr-4 text-right font-medium tabular-nums">
+                                    {row.count}
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
             </Card>
         </section>
     );

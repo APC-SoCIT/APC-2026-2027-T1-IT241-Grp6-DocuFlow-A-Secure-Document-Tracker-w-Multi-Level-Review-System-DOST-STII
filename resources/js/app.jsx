@@ -20,6 +20,6 @@ createInertiaApp({
         root.render(<App {...props} />);
     },
     progress: {
-        color: '#0089B8', // dost-blue
+        color: 'var(--primary)',
     },
 });
