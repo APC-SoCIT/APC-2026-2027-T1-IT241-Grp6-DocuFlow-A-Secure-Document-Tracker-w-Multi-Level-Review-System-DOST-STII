@@ -49,7 +49,7 @@ export default function DocumentSourceField({ form, label = 'Document' }) {
                                 clearErrors('google_workspace_link', 'file');
                             }}
                             className={cn(
-                                'flex h-10 items-center justify-center gap-2 rounded-md border text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                'flex h-10 items-center justify-center gap-2 rounded-md border text-sm font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
                                 selected
                                     ? 'border-dost-blue text-dost-blue'
                                     : 'border-border text-ink-muted hover:text-ink',
