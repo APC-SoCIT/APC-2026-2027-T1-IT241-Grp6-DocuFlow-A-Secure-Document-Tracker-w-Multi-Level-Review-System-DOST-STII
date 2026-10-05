@@ -35,7 +35,7 @@ export default function Create({ documentTypes, l1Reviewers }) {
         document_type: '',
         document_type_other: '',
         description: '',
-        source_type: 'link',
+        source_type: '', // '' until a link or file is attached
         google_workspace_link: '',
         file: null,
         l1_reviewer_id: '',
@@ -61,7 +61,7 @@ export default function Create({ documentTypes, l1Reviewers }) {
                         Cancel
                     </Button>
                     <SubmitButton form={FORM_ID} processing={processing} progress={progress} busyLabel="Submitting…">
-                        Submit document
+                        Submit
                     </SubmitButton>
                 </>
             }
@@ -143,13 +143,11 @@ export default function Create({ documentTypes, l1Reviewers }) {
                             className="bg-muted/50 text-muted-foreground"
                         />
                     </div>
+
+                    <DocumentSourceField form={form} label="File" />
                 </section>
 
                 <div className="grid content-start gap-10">
-                    <section>
-                        <DocumentSourceField form={form} label="File" />
-                    </section>
-
                     <section className="grid content-start gap-5">
                         <h2 className="text-sm font-semibold">Reviewer</h2>
                         <div className="grid gap-2">

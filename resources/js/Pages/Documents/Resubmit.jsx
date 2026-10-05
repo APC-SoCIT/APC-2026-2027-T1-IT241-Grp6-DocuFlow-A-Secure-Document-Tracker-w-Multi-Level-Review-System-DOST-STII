@@ -13,8 +13,8 @@ const FORM_ID = 'resubmit-document-form';
 
 export default function Resubmit({ document, lastReturn }) {
     const form = useForm({
-        // Start from the current source; an edited Google Doc keeps its link.
-        source_type: document.has_file ? 'file' : 'link',
+        // An edited Google Doc keeps its link; an uploaded file needs a new upload.
+        source_type: document.has_file ? '' : 'link',
         google_workspace_link: document.google_workspace_link ?? '',
         file: null,
         change_note: '',

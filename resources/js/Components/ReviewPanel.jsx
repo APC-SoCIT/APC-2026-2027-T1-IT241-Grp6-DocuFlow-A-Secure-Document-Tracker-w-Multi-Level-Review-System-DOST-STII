@@ -220,7 +220,7 @@ export default function ReviewPanel({ controller }) {
     const { data, setData, errors } = form;
 
     return (
-        <Card id="review-card" className="scroll-mt-32 gap-0">
+        <Card id="review-card" className="scroll-mt-[calc(var(--header-offset,8rem)+1rem)] gap-0">
             <CardHeader className="pb-1">
                 <CardTitle className="text-sm font-semibold">Your review</CardTitle>
             </CardHeader>

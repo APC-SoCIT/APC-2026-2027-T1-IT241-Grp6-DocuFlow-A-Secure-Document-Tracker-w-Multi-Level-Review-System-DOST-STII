@@ -47,7 +47,7 @@ import {
     PanelLeftCloseIcon,
     PanelLeftOpenIcon,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 // Stored once for the whole app, so the rail keeps its state across pages.
@@ -228,8 +228,9 @@ function AppSidebar({ user, unreadNotifications }) {
 /**
  * App shell: collapsible sidebar (state remembered across the app), a top
  * bar with the global search and notifications in the middle, and a page
- * header with an optional Back button, title and actions. Both bars stay
- * fixed while the page scrolls. Flash messages: success as a toast, blocked
+ * header: the Back button and the page's actions on top, the title below.
+ * Both bars stay fixed while the page scrolls; their combined height is
+ * published as the CSS variable --header-offset for sticky page content. Flash messages: success as a toast, blocked
  * actions as an alert above the page.
  *
  * back: { fallback: url } — goes to the previous page in the app, or to
@@ -240,6 +241,22 @@ function AppSidebar({ user, unreadNotifications }) {
 export default function AuthenticatedLayout({ title, description, actions, back, surface = false, children, className }) {
     const { auth, flash, unreadNotifications } = usePage().props;
     const [expanded, setExpanded] = useState(readSidebarExpanded);
+    const headerRef = useRef(null);
+
+    // Keep --header-offset equal to the top bar plus the page header.
+    useEffect(() => {
+        const header = headerRef.current;
+        if (!header || typeof ResizeObserver === 'undefined') return undefined;
+        const update = () =>
+            window.document.documentElement.style.setProperty(
+                '--header-offset',
+                `${header.getBoundingClientRect().bottom}px`,
+            );
+        const observer = new ResizeObserver(update);
+        observer.observe(header);
+        update();
+        return () => observer.disconnect();
+    }, []);
 
     useEffect(() => {
         try {
@@ -276,22 +293,32 @@ export default function AuthenticatedLayout({ title, description, actions, back,
                         </div>
                     </div>
 
-                    <header className="sticky top-14 z-20 border-b bg-background">
-                        <div className="mx-auto flex min-h-14 w-full max-w-[1600px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 md:px-6">
-                            {back && (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => goBack(back.fallback)}
-                                    className="-ml-2 text-muted-foreground"
-                                >
-                                    <ArrowLeftIcon data-icon="inline-start" aria-hidden="true" />
-                                    Back
-                                </Button>
+                    <header ref={headerRef} className="sticky top-14 z-20 border-b bg-background">
+                        <div className="mx-auto w-full max-w-[1600px] space-y-2 px-4 py-3 md:px-6">
+                            {/* Buttons on top: Back on the left, the page's actions on the right. */}
+                            {(back || actions) && (
+                                <div className="flex min-h-9 flex-wrap items-center gap-2">
+                                    {back && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => goBack(back.fallback)}
+                                            className="-ml-2 text-muted-foreground"
+                                        >
+                                            <ArrowLeftIcon data-icon="inline-start" aria-hidden="true" />
+                                            Back
+                                        </Button>
+                                    )}
+                                    {actions && <div className="ml-auto flex shrink-0 items-center gap-2">{actions}</div>}
+                                </div>
                             )}
-                            <h1 className="min-w-0 truncate font-heading text-lg font-semibold tracking-tight">{title}</h1>
-                            {description && <div className="flex items-center gap-2">{description}</div>}
-                            {actions && <div className="ml-auto flex shrink-0 items-center gap-2">{actions}</div>}
+                            {/* The title below. */}
+                            <div className="flex min-w-0 items-center gap-3">
+                                <h1 className="min-w-0 truncate font-heading text-xl font-semibold tracking-tight">
+                                    {title}
+                                </h1>
+                                {description && <div className="flex items-center gap-2">{description}</div>}
+                            </div>
                         </div>
                     </header>
 

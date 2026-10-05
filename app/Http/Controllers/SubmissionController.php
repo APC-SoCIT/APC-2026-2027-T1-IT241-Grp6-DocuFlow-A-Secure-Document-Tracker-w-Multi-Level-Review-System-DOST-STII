@@ -202,6 +202,7 @@ class SubmissionController extends Controller
     private function sourceMessages(): array
     {
         return [
+            'source_type.required' => 'Attach a Google Workspace link or a file.',
             'google_workspace_link.required_if' => 'Enter a Google Workspace link.',
             'file.required_if' => 'Choose a file to upload.',
             'file.extensions' => 'The file must be a PDF, DOCX or XLSX file.',

@@ -64,7 +64,7 @@ export default function Show({ document, revisions, reviews, lastReturn, canResu
 
             <div className="grid gap-5 lg:grid-cols-12">
                 {/* Left, ~60%: the document. Stays in view below the fixed headers. */}
-                <div className="h-[70svh] lg:sticky lg:top-[8.25rem] lg:col-span-7 lg:h-[calc(100svh-9.5rem)]">
+                <div className="h-[70svh] lg:sticky lg:top-[calc(var(--header-offset,8rem)+1.25rem)] lg:col-span-7 lg:h-[calc(100svh-var(--header-offset,8rem)-2.5rem)]">
                     <DocumentPreview preview={preview} title={title} />
                 </div>
 
