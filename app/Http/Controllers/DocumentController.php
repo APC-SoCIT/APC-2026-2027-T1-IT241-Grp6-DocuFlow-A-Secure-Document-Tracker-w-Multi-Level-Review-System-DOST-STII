@@ -202,7 +202,7 @@ class DocumentController extends Controller
 
         return Storage::response(
             $document->file_path,
-            "{$document->reference_number}.{$extension}",
+            $document->displayFileName(),
             [],
             $extension === 'pdf' ? 'inline' : 'attachment',
         );
@@ -291,6 +291,7 @@ class DocumentController extends Controller
         return [
             'kind' => $extension === 'pdf' ? 'pdf' : 'file',
             'extension' => $extension,
+            'file_name' => $document->displayFileName(),
             'open_url' => route('documents.file', $document),
         ];
     }

@@ -174,7 +174,7 @@ class DemoSeeder extends Seeder
     }
 
     /**
-     * @param  array{0: string, 1: string}  $file  [contents, extension]
+     * @param  array{0: string, 1: string, 2: string}  $file  [contents, extension, original name]
      */
     /**
      * @param  array{description?: string, other?: string}  $details
@@ -182,7 +182,7 @@ class DemoSeeder extends Seeder
     private function submit(string $type, array $details, User $l1, Carbon $at, array $file, ?User $submitter = null): Document
     {
         $submitter ??= $this->source;
-        [$contents, $extension] = $file;
+        [$contents, $extension, $fileName] = $file;
         $path = 'documents/demo-'.Str::random(16).'.'.$extension;
         Storage::put($path, $contents);
 
@@ -192,6 +192,7 @@ class DemoSeeder extends Seeder
             'document_type' => $type,
             'document_type_other' => $details['other'] ?? null,
             'file_path' => $path,
+            'file_name' => $fileName,
             'submitted_at' => $at,
             'status' => Document::STATUS_PENDING_L1,
             'review_state' => Document::REVIEW_STATE_NEW,
@@ -265,11 +266,11 @@ class DemoSeeder extends Seeder
     /**
      * Mirror DocumentController::resubmit: new revision, back to the same L1.
      *
-     * @param  array{0: string, 1: string}  $file
+     * @param  array{0: string, 1: string, 2: string}  $file
      */
     private function resubmit(Document $document, Carbon $at, string $changeNote, array $file): void
     {
-        [$contents, $extension] = $file;
+        [$contents, $extension, $fileName] = $file;
         Storage::delete($document->file_path);
         $path = 'documents/demo-'.Str::random(16).'.'.$extension;
         Storage::put($path, $contents);
@@ -279,6 +280,7 @@ class DemoSeeder extends Seeder
 
         $document->update([
             'file_path' => $path,
+            'file_name' => $fileName,
             'resubmission_count' => $document->resubmission_count + 1,
             'status' => Document::STATUS_PENDING_L1,
             'review_state' => Document::REVIEW_STATE_NEW,
@@ -325,7 +327,7 @@ class DemoSeeder extends Seeder
     /**
      * A one-page PDF with a title and lines of text.
      *
-     * @return array{0: string, 1: string}
+     * @return array{0: string, 1: string, 2: string}
      */
     private function pdf(string $title, array $lines): array
     {
@@ -360,13 +362,13 @@ class DemoSeeder extends Seeder
         }
         $pdf .= 'trailer << /Size '.(count($objects) + 1)." /Root 1 0 R >>\nstartxref\n{$xref}\n%%EOF\n";
 
-        return [$pdf, 'pdf'];
+        return [$pdf, 'pdf', $this->fileName($title, 'pdf')];
     }
 
     /**
      * A minimal Word document: a bold title and paragraphs.
      *
-     * @return array{0: string, 1: string}
+     * @return array{0: string, 1: string, 2: string}
      */
     private function docx(string $title, array $paragraphs): array
     {
@@ -381,13 +383,13 @@ class DemoSeeder extends Seeder
             '_rels/.rels' => '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
             'word/_rels/document.xml.rels' => '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>',
             'word/document.xml' => '<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'.$body.'<w:sectPr/></w:body></w:document>',
-        ]), 'docx'];
+        ]), 'docx', $this->fileName($title, 'docx')];
     }
 
     /**
      * A minimal one-sheet Excel workbook.
      *
-     * @return array{0: string, 1: string}
+     * @return array{0: string, 1: string, 2: string}
      */
     private function xlsx(string $sheetName, array $rows): array
     {
@@ -410,7 +412,15 @@ class DemoSeeder extends Seeder
             'xl/workbook.xml' => '<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="'.$esc($sheetName).'" sheetId="1" r:id="rId1"/></sheets></workbook>',
             'xl/_rels/workbook.xml.rels' => '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>',
             'xl/worksheets/sheet1.xml' => '<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'.$sheetRows.'</sheetData></worksheet>',
-        ]), 'xlsx'];
+        ]), 'xlsx', $this->fileName($sheetName, 'xlsx')];
+    }
+
+    /**
+     * A readable original file name, e.g. "Draft Policy - Records Retention.pdf".
+     */
+    private function fileName(string $title, string $extension): string
+    {
+        return str_replace(':', ' -', $title).'.'.$extension;
     }
 
     /**

@@ -123,8 +123,9 @@ class WorkflowService
         ?string $link,
         ?string $filePath,
         int $l1ReviewerId,
+        ?string $fileName = null,
     ): Document {
-        return DB::transaction(function () use ($submitter, $documentType, $otherType, $description, $link, $filePath, $l1ReviewerId) {
+        return DB::transaction(function () use ($submitter, $documentType, $otherType, $description, $link, $filePath, $l1ReviewerId, $fileName) {
             $document = Document::create([
                 'reference_number' => $this->nextReferenceNumber($documentType),
                 'description' => $description,
@@ -132,6 +133,7 @@ class WorkflowService
                 'document_type_other' => $documentType === 'Other' ? $otherType : null,
                 'google_workspace_link' => $link,
                 'file_path' => $filePath,
+                'file_name' => $filePath === null ? null : $fileName,
                 'submitted_at' => now(),
                 'status' => Document::STATUS_PENDING_L1,
                 'review_state' => Document::REVIEW_STATE_NEW,
@@ -160,12 +162,13 @@ class WorkflowService
      * Resubmission: same reference number, new revision, back to the same L1,
      * reset to Level 1. The Date Submitted doesn't change.
      */
-    public function resubmit(Document $document, User $submitter, ?string $link, ?string $filePath, string $changeNote, int $l1ReviewerId): void
+    public function resubmit(Document $document, User $submitter, ?string $link, ?string $filePath, string $changeNote, int $l1ReviewerId, ?string $fileName = null): void
     {
-        DB::transaction(function () use ($document, $submitter, $link, $filePath, $changeNote, $l1ReviewerId) {
+        DB::transaction(function () use ($document, $submitter, $link, $filePath, $changeNote, $l1ReviewerId, $fileName) {
             $document->update([
                 'google_workspace_link' => $link,
                 'file_path' => $filePath,
+                'file_name' => $filePath === null ? null : $fileName,
                 'resubmission_count' => $document->resubmission_count + 1,
                 'status' => Document::STATUS_PENDING_L1,
                 'review_state' => Document::REVIEW_STATE_NEW,

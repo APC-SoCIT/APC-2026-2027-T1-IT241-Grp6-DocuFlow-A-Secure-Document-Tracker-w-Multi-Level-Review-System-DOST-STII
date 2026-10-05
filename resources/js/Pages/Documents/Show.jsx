@@ -20,8 +20,8 @@ function Detail({ label, children, wide = false }) {
     );
 }
 
-// The attached Google Workspace link or uploaded file, as a link to open it.
-function Attachment({ preview, reference }) {
+// The submitted Google Workspace link, or the uploaded file's own name, as a link to open it.
+function Attachment({ preview }) {
     if (preview.kind === 'missing') {
         return <span className="text-muted-foreground">The uploaded file is unavailable</span>;
     }
@@ -35,7 +35,7 @@ function Attachment({ preview, reference }) {
             rel="noreferrer"
             className="block truncate underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-foreground"
         >
-            {isLink ? preview.open_url : `${reference}.${preview.extension}`}
+            {isLink ? preview.open_url : preview.file_name}
         </a>
     );
 }
@@ -87,7 +87,7 @@ export default function Show({ document, revisions, reviews, lastReturn, canResu
                                 <Detail label="Submitted by">{document.submitted_by}</Detail>
                                 <Detail label="Date Submitted">{formatDateTime(document.submitted_at)}</Detail>
                                 <Detail label={preview.kind === 'google' ? 'Google Workspace link' : 'Attached file'} wide>
-                                    <Attachment preview={preview} reference={document.reference_number} />
+                                    <Attachment preview={preview} />
                                 </Detail>
                                 <Detail label="Status">
                                     <StatusBadge status={document.status} />

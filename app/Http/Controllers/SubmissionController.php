@@ -82,6 +82,7 @@ class SubmissionController extends Controller
             $usesLink ? $validated['google_workspace_link'] : null,
             $usesLink ? null : $request->file('file')->store('documents'),
             (int) $validated['l1_reviewer_id'],
+            $usesLink ? null : $request->file('file')->getClientOriginalName(),
         );
 
         return redirect()->route('documents.show', $document)->with(
@@ -141,6 +142,7 @@ class SubmissionController extends Controller
             $newFilePath,
             $validated['change_note'],
             $l1ReviewerId,
+            $usesLink ? null : $request->file('file')->getClientOriginalName(),
         );
 
         // The replaced upload is no longer referenced by anything.

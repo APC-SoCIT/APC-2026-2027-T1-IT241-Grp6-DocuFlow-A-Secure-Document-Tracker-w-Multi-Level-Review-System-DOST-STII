@@ -155,7 +155,7 @@ export default function DocumentSourceField({ form, label = 'File' }) {
                         type="button"
                         aria-invalid={!!error}
                         className={cn(
-                            'group flex h-11 w-full items-center gap-3 rounded-lg border border-dashed px-3 text-left text-sm transition-colors hover:border-foreground/30 hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none data-[state=open]:border-foreground/30 data-[state=open]:bg-muted/40',
+                            'group flex h-11 w-full items-center gap-3 rounded-lg border px-3 text-left text-sm transition-colors hover:border-foreground/30 hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none data-[state=open]:border-foreground/30 data-[state=open]:bg-muted/40',
                             error && 'border-destructive',
                         )}
                     >

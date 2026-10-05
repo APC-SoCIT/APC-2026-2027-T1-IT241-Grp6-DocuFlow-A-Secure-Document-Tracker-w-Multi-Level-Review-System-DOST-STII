@@ -132,6 +132,20 @@ class DocumentDetailTest extends TestCase
                 ->where('reviews.1.review_level', 1));
     }
 
+    public function test_an_uploaded_file_keeps_its_original_name(): void
+    {
+        $document = $this->submit([
+            'source_type' => 'file',
+            'file' => UploadedFile::fake()->create('Budget Proposal 2026.pdf', 100, 'application/pdf'),
+        ]);
+
+        $this->assertSame('Budget Proposal 2026.pdf', $document->fresh()->file_name);
+        $this->actingAs($this->source)->get(route('documents.show', $document))
+            ->assertInertia(fn ($page) => $page->where('preview.file_name', 'Budget Proposal 2026.pdf'));
+        $this->actingAs($this->source)->get(route('documents.file', $document))
+            ->assertHeader('content-disposition', 'inline; filename="Budget Proposal 2026.pdf"');
+    }
+
     public function test_missing_upload_shows_an_error_but_keeps_the_record(): void
     {
         $document = $this->submit([

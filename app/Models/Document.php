@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'document_type_other',
     'google_workspace_link',
     'file_path',
+    'file_name',
     'submitted_at',
     'resubmission_count',
     'status',
@@ -109,6 +110,16 @@ class Document extends Model
         return $this->document_type === 'Other' && filled($this->document_type_other)
             ? $this->document_type_other
             : $this->document_type;
+    }
+
+    /**
+     * The uploaded file's original name. Uploads saved before names were
+     * kept fall back to the document type, e.g. "Policy Draft.pdf".
+     */
+    public function displayFileName(): string
+    {
+        return $this->file_name
+            ?? $this->typeLabel().'.'.pathinfo((string) $this->file_path, PATHINFO_EXTENSION);
     }
 
     public function statusLabel(): string
