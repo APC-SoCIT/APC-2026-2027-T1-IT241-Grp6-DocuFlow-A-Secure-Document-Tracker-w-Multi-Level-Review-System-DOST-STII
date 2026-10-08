@@ -226,8 +226,6 @@ class DemoSeeder extends Seeder
         $this->stamp($document->reviews()->create([
             'reviewer_id' => $reviewer->id,
             'review_level' => $level,
-            // Forward, Endorse and Approve require an assessment; Return doesn't.
-            'assessment' => $action === 'return' ? null : 'Complete and consistent with the submission guidelines.',
             'remarks' => $remarks,
             'action' => $action,
             'tat_days' => $tatDays,

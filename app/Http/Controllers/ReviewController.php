@@ -40,8 +40,7 @@ class ReviewController extends Controller
 
         $validated = $request->validate([
             'action' => ['required', Rule::in($this->workflow->actionsFor($level))],
-            // Return needs remarks; Forward, Endorse and Approve need an assessment and remarks.
-            'assessment' => ['nullable', 'required_unless:action,return', 'string', 'max:5000'],
+            // Every action needs the reviewer's official remarks.
             'remarks' => ['required', 'string', 'max:5000'],
             'l2_reviewer_id' => [
                 'exclude_unless:action,forward',
@@ -52,7 +51,6 @@ class ReviewController extends Controller
             ],
         ], [
             'action.in' => 'That action is not available at this review level.',
-            'assessment.required_unless' => 'Add your assessment before you forward, endorse or approve.',
             'remarks.required' => 'Add your remarks. When you return a document, they tell the Document Source what to change.',
             'l2_reviewer_id.required' => 'Select a Section Head (L2) to forward to.',
             'l2_reviewer_id.not_in' => 'Self-Review Restriction: you cannot forward a document to yourself or its submitter.',
@@ -63,7 +61,6 @@ class ReviewController extends Controller
             $document,
             $reviewer,
             $validated['action'],
-            $validated['assessment'] ?? null,
             $validated['remarks'],
             isset($validated['l2_reviewer_id']) ? (int) $validated['l2_reviewer_id'] : null,
         );

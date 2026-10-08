@@ -89,7 +89,7 @@ class ChecklistTest extends TestCase
 
         try {
             $this->actingAs($this->l1)->post(route('reviews.store', $document), [
-                'action' => 'forward', 'assessment' => 'OK', 'remarks' => 'OK', 'l2_reviewer_id' => $this->l2->id,
+                'action' => 'forward', 'remarks' => 'OK', 'l2_reviewer_id' => $this->l2->id,
             ]);
             $this->fail('The simulated failure should have stopped the review.');
         } catch (RuntimeException) {
@@ -119,7 +119,7 @@ class ChecklistTest extends TestCase
 
         // Still at Level 1: the L3 can't approve it.
         $this->actingAs($this->l3)->post(route('reviews.store', $document), [
-            'action' => 'approve', 'assessment' => 'OK', 'remarks' => 'OK',
+            'action' => 'approve', 'remarks' => 'OK',
         ])->assertSessionHas('error');
         $this->assertSame(Document::STATUS_PENDING_L1, $document->fresh()->status);
     }
@@ -142,7 +142,7 @@ class ChecklistTest extends TestCase
         $level($this->source)->assertInertia(fn ($page) => $page->where('review', null));
 
         $this->actingAs($this->l1)->post(route('reviews.store', $document), [
-            'action' => 'forward', 'assessment' => 'OK', 'remarks' => 'OK', 'l2_reviewer_id' => $this->l2->id,
+            'action' => 'forward', 'remarks' => 'OK', 'l2_reviewer_id' => $this->l2->id,
         ]);
         $level($this->l1)->assertInertia(fn ($page) => $page->where('review', null));
         $level($this->l2)->assertInertia(fn ($page) => $page

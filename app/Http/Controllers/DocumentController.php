@@ -259,7 +259,6 @@ class DocumentController extends Controller
                 'action' => $review->action,
                 'reviewed_at' => $review->created_at,
                 'tat_days' => $review->tat_days,
-                'assessment' => $review->assessment,
                 'remarks' => $review->remarks,
             ])->all(),
         ];

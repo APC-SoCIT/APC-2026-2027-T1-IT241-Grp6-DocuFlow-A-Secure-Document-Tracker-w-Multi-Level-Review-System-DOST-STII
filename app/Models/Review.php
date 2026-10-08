@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'document_id',
     'reviewer_id',
     'review_level',
-    'assessment',
     'remarks',
     'action',
     'tat_days',

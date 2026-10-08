@@ -196,16 +196,15 @@ class WorkflowService
      * Record a review action with its TAT, move the document on,
      * and notify whoever is next. Returns the confirmation message.
      */
-    public function review(Document $document, User $reviewer, string $action, ?string $assessment, string $remarks, ?int $l2ReviewerId = null): string
+    public function review(Document $document, User $reviewer, string $action, string $remarks, ?int $l2ReviewerId = null): string
     {
         $level = $document->current_review_level;
         $tatDays = $this->tat->daysSinceAssignment($document);
 
-        return DB::transaction(function () use ($document, $reviewer, $level, $action, $assessment, $remarks, $l2ReviewerId, $tatDays) {
+        return DB::transaction(function () use ($document, $reviewer, $level, $action, $remarks, $l2ReviewerId, $tatDays) {
             $document->reviews()->create([
                 'reviewer_id' => $reviewer->id,
                 'review_level' => $level,
-                'assessment' => $assessment,
                 'remarks' => $remarks,
                 'action' => $action,
                 'tat_days' => $tatDays,

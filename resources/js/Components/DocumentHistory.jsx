@@ -99,10 +99,7 @@ export default function DocumentHistory({ revisions, reviews }) {
                                                     ['Reviewer', r.reviewer],
                                                     ['TAT', days(r.tat_days)],
                                                 ],
-                                                notes: [
-                                                    ['Assessment', r.assessment],
-                                                    ['Remarks', r.remarks],
-                                                ],
+                                                notes: [['Official remarks', r.remarks]],
                                             })
                                         }
                                     />

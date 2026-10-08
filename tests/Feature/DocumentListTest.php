@@ -46,7 +46,6 @@ class DocumentListTest extends TestCase
     private function act(User $reviewer, Document $document, array $data): void
     {
         $this->actingAs($reviewer)->post(route('reviews.store', $document), [
-            'assessment' => 'Meets the requirements.',
             'remarks' => 'Reviewed.',
             ...$data,
         ])->assertSessionHasNoErrors();

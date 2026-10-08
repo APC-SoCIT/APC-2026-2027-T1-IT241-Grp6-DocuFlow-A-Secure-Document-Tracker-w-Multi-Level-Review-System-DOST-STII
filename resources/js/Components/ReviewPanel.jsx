@@ -1,5 +1,4 @@
 import FieldError from '@/Components/FieldError';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/Components/ui/accordion';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -16,16 +15,14 @@ import { Label } from '@/Components/ui/label';
 import { ReviewerOption, dropdownProps, optionClassName } from '@/Components/SelectOptions';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Textarea } from '@/Components/ui/textarea';
-import { cn } from '@/lib/utils';
 import { useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 const FINAL = 'Your review is recorded and can’t be changed afterwards.';
 
 // Same wording as the server-side validation messages.
 const MESSAGES = {
-    assessment: 'Add your assessment before you forward, endorse or approve.',
     remarks: 'Add your remarks. When you return a document, they tell the Document Source what to change.',
     l2_reviewer_id: 'Select a Section Head (L2) to forward to.',
 };
@@ -66,30 +63,9 @@ function actionConfig(action, { l2Name, l3Name }) {
 
 const NEXT_ACTION = { 1: 'forward', 2: 'endorse', 3: 'approve' };
 
-// Accordion header: the field name, then what's in it (or what's needed).
-function FieldTrigger({ label, value, hint, error }) {
-    const filled = value.trim() !== '';
-
-    return (
-        <AccordionTrigger className="items-center py-3 hover:no-underline">
-            <span className="flex min-w-0 flex-1 items-center gap-2 pr-2">
-                <span className="shrink-0 text-[13px] font-medium">{label}</span>
-                <span
-                    className={cn(
-                        'truncate text-xs font-normal',
-                        error && !filled ? 'text-destructive' : 'text-muted-foreground',
-                    )}
-                >
-                    {filled ? value : hint}
-                </span>
-            </span>
-        </AccordionTrigger>
-    );
-}
-
 /**
- * The review form's state, shared by the review card (assessment, remarks,
- * L2 choice) and the action buttons in the page header.
+ * The review form's state, shared by the review card (official remarks, L2
+ * choice) and the action buttons in the page header.
  * L1 = Return or Forward (to a chosen L2). L2 = Return or Endorse (to the
  * one seeded L3). L3 = Return or Approve. Every action asks for
  * confirmation first, since reviews are final. `review` is null when this
@@ -98,12 +74,10 @@ function FieldTrigger({ label, value, hint, error }) {
 export function useReview(documentId, review) {
     const form = useForm({
         action: '',
-        assessment: '',
         remarks: '',
         l2_reviewer_id: '',
     });
-    const { data, post, errors, transform, setError, clearErrors } = form;
-    const [openFields, setOpenFields] = useState([]);
+    const { data, post, transform, setError, clearErrors } = form;
     // The action being confirmed stays set while the dialog animates closed.
     const [confirming, setConfirming] = useState(null);
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -114,19 +88,10 @@ export function useReview(documentId, review) {
         l3Name: review?.l3ReviewerName,
     };
 
-    // Open whichever field the server (or the check below) flagged.
-    useEffect(() => {
-        const flagged = ['assessment', 'remarks'].filter((field) => errors[field]);
-        if (flagged.length) {
-            setOpenFields((current) => [...new Set([...current, ...flagged])]);
-        }
-    }, [errors]);
-
     // Catch empty fields before asking for confirmation.
     function missingFor(action) {
         const missing = {};
         if (!data.remarks.trim()) missing.remarks = MESSAGES.remarks;
-        if (action !== 'return' && !data.assessment.trim()) missing.assessment = MESSAGES.assessment;
         if (action === 'forward' && !data.l2_reviewer_id) missing.l2_reviewer_id = MESSAGES.l2_reviewer_id;
         return missing;
     }
@@ -157,8 +122,6 @@ export function useReview(documentId, review) {
         review,
         form,
         names,
-        openFields,
-        setOpenFields,
         confirming,
         dialogOpen,
         setDialogOpen,
@@ -212,67 +175,34 @@ export function ReviewActions({ controller }) {
 }
 
 /**
- * Right-column review card: assessment and remarks as an accordion (so the
- * column stays short), and at Level 1 the Section Head (L2) to forward to.
+ * Right-column review card: the official remarks, and at Level 1 the
+ * Section Head (L2) to forward to.
  */
 export default function ReviewPanel({ controller }) {
-    const { review, form, openFields, setOpenFields } = controller;
+    const { review, form } = controller;
     const { data, setData, errors } = form;
 
     return (
         <Card id="review-card" className="scroll-mt-[calc(var(--header-offset,8rem)+1rem)] gap-0">
-            <CardHeader className="pb-1">
+            <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold">Your review</CardTitle>
             </CardHeader>
 
             <CardContent className="space-y-4">
-                <Accordion type="multiple" value={openFields} onValueChange={setOpenFields}>
-                    <AccordionItem value="assessment">
-                        <FieldTrigger
-                            label="Assessment"
-                            value={data.assessment}
-                            hint={`Required to ${NEXT_ACTION[review.level]}`}
-                            error={errors.assessment}
-                        />
-                        <AccordionContent className="space-y-2 pb-3">
-                            <Label htmlFor="assessment" className="sr-only">
-                                Assessment
-                            </Label>
-                            <Textarea
-                                id="assessment"
-                                rows={4}
-                                value={data.assessment}
-                                onChange={(e) => setData('assessment', e.target.value)}
-                                aria-invalid={!!errors.assessment}
-                                placeholder="Your evaluation of the document"
-                            />
-                            <FieldError message={errors.assessment} />
-                        </AccordionContent>
-                    </AccordionItem>
-
-                    <AccordionItem value="remarks">
-                        <FieldTrigger
-                            label="Remarks"
-                            value={data.remarks}
-                            hint="Required for every action"
-                            error={errors.remarks}
-                        />
-                        <AccordionContent className="space-y-2 pb-3">
-                            <Label htmlFor="remarks" className="sr-only">
-                                Remarks
-                            </Label>
-                            <Textarea
-                                id="remarks"
-                                rows={4}
-                                value={data.remarks}
-                                onChange={(e) => setData('remarks', e.target.value)}
-                                aria-invalid={!!errors.remarks}
-                                placeholder="If you return the document, the Document Source sees these."
-                            />
-                            <FieldError message={errors.remarks} />
-                        </AccordionContent>
-                    </AccordionItem>
-                </Accordion>
+                <div className="grid gap-2">
+                    <Label htmlFor="remarks" className="text-[13px]">
+                        Official remarks
+                    </Label>
+                    <Textarea
+                        id="remarks"
+                        rows={5}
+                        value={data.remarks}
+                        onChange={(e) => setData('remarks', e.target.value)}
+                        aria-invalid={!!errors.remarks}
+                        placeholder="If you return the document, the Document Source sees these."
+                    />
+                    <FieldError message={errors.remarks} />
+                </div>
 
                 {review.level === 1 && (
                     <div className="grid gap-2">
