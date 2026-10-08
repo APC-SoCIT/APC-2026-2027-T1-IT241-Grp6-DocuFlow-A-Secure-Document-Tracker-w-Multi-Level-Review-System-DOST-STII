@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Document;
 use App\Models\User;
-use App\Services\TatRatingService;
+use App\Services\TatService;
 use App\Services\WorkflowService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -23,7 +23,7 @@ class DocumentController extends Controller
 {
     public function __construct(
         private WorkflowService $workflow,
-        private TatRatingService $tatRating,
+        private TatService $tat,
     ) {}
 
     /**
@@ -174,9 +174,9 @@ class DocumentController extends Controller
                 'revision_number' => $document->revisions()->max('revision_number'),
                 'review_level' => $isPending ? $document->current_review_level : null,
                 'assigned_reviewer' => $document->assignedReviewer?->name,
-                'tat_days' => $this->tatRating->currentTat($document),
+                'tat_days' => $this->tat->currentTat($document),
                 'tat_is_final' => ! $isPending,
-                'is_overdue' => $this->tatRating->isOverdue($document),
+                'is_overdue' => $this->tat->isOverdue($document),
             ],
             ...$this->historyFor($document),
             'lastReturn' => $document->status === Document::STATUS_RETURNED
@@ -224,9 +224,9 @@ class DocumentController extends Controller
             'review_state' => $document->review_state,
             'review_level' => $isPending ? $document->current_review_level : null,
             'assigned_reviewer' => $document->assignedReviewer?->name,
-            'tat_days' => $this->tatRating->currentTat($document),
+            'tat_days' => $this->tat->currentTat($document),
             'tat_is_final' => ! $isPending,
-            'is_overdue' => $this->tatRating->isOverdue($document),
+            'is_overdue' => $this->tat->isOverdue($document),
         ];
     }
 

@@ -6,7 +6,7 @@ use App\Models\Document;
 use App\Models\Notification;
 use App\Models\Review;
 use App\Models\User;
-use App\Services\TatRatingService;
+use App\Services\TatService;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -47,7 +47,7 @@ class DemoSeederTest extends TestCase
         }
 
         // Overdue documents (pending with one reviewer for more than 5 days).
-        $tat = app(TatRatingService::class);
+        $tat = app(TatService::class);
         $this->assertSame(2, Document::all()->filter(fn ($d) => $tat->isOverdue($d))->count());
 
         // New and Ongoing both appear; L1 and L2 submitters are included.

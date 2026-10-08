@@ -34,7 +34,7 @@ class WorkflowService
     ];
 
     public function __construct(
-        private TatRatingService $tatRating,
+        private TatService $tat,
         private NotificationService $notifications,
     ) {}
 
@@ -199,7 +199,7 @@ class WorkflowService
     public function review(Document $document, User $reviewer, string $action, ?string $assessment, string $remarks, ?int $l2ReviewerId = null): string
     {
         $level = $document->current_review_level;
-        $tatDays = $this->tatRating->daysSinceAssignment($document);
+        $tatDays = $this->tat->daysSinceAssignment($document);
 
         return DB::transaction(function () use ($document, $reviewer, $level, $action, $assessment, $remarks, $l2ReviewerId, $tatDays) {
             $document->reviews()->create([
@@ -209,7 +209,7 @@ class WorkflowService
                 'remarks' => $remarks,
                 'action' => $action,
                 'tat_days' => $tatDays,
-                'rating' => $this->tatRating->ratingFor($tatDays),
+                'rating' => $this->tat->ratingFor($tatDays),
             ]);
 
             return match ($action) {

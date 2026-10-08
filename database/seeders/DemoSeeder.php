@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use App\Models\Document;
 use App\Models\Notification;
 use App\Models\User;
-use App\Services\TatRatingService;
+use App\Services\TatService;
 use App\Services\WorkflowService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
@@ -220,8 +220,8 @@ class DemoSeeder extends Seeder
     private function review(Document $document, User $reviewer, string $action, Carbon $at, string $remarks, ?User $next = null): void
     {
         $level = $document->current_review_level;
-        $tatRating = app(TatRatingService::class);
-        $tatDays = $tatRating->daysSinceAssignment($document, $at);
+        $tat = app(TatService::class);
+        $tatDays = $tat->daysSinceAssignment($document, $at);
 
         $this->stamp($document->reviews()->create([
             'reviewer_id' => $reviewer->id,
@@ -231,7 +231,7 @@ class DemoSeeder extends Seeder
             'remarks' => $remarks,
             'action' => $action,
             'tat_days' => $tatDays,
-            'rating' => $tatRating->ratingFor($tatDays),
+            'rating' => $tat->ratingFor($tatDays),
         ]), $at);
 
         $ref = $document->reference_number;

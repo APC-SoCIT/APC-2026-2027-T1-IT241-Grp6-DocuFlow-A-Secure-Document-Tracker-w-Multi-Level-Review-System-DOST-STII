@@ -9,7 +9,7 @@ use Illuminate\Support\Carbon;
  * Turnaround time (TAT) and the reviewer rating. TAT is counted in plain
  * calendar days (Philippine time), from assignment to the review action.
  */
-class TatRatingService
+class TatService
 {
     private const TIMEZONE = 'Asia/Manila';
 
