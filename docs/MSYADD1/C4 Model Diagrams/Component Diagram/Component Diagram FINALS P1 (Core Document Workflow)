@@ -19,7 +19,7 @@ Container_Boundary(backendBoundary, "DocuFlow Backend Application (Laravel / Apa
     Component(notificationController, "Notification Controller", "Laravel Controller", "Serves in-system notifications to the frontend and marks them as read.")
 
     Component(workflowService, "Workflow & Routing Service", "Laravel Service", "Enforces 3-level sequential routing, resubmission reset to L1, and generates reference numbers (DOCTYPE-YYYY-NNNNN).")
-    Component(tatRatingService, "TAT & Rating Service", "Laravel Service", "Starts the assigned reviewer's TAT on submission, resubmission, forward, and endorsement, and stops it when the review completes. Counts working days, excludes Philippine holidays and the time spent waiting for the Document Source, and assigns reviewer ratings.")
+    Component(tatService, "TAT Service", "Laravel Service", "Starts the assigned reviewer's TAT on submission, resubmission, forward, and endorsement, and stops it when the review completes. Counts working days and excludes Philippine holidays and the time spent waiting for the Document Source.")
 
     Component(auditService, "Audit Logging Service", "Laravel Service", "Writes immutable, server-timestamped activity records for document, review, administrative, and integration events.")
     Component(notificationService, "Notification Service", "Laravel Service", "Creates in-system notification records and prepares workflow, review, and overdue reminder emails for delivery.")
@@ -41,13 +41,13 @@ Rel_D(authMiddleware, reviewController, "Routes requests", "Internal")
 Rel_D(authMiddleware, notificationController, "Routes requests", "Internal")
 
 Rel_D(submissionController, workflowService, "Initiates submission logic", "Internal")
-Rel_D(submissionController, tatRatingService, "Starts the first reviewer's TAT", "Internal")
+Rel_D(submissionController, tatService, "Starts the first reviewer's TAT", "Internal")
 Rel_D(submissionController, auditService, "Logs submission events", "Internal")
 Rel_D(submissionController, notificationService, "Triggers submission notifications", "Internal")
 Rel_D(submissionController, fileStorage, "Saves uploaded files", "Laravel Filesystem")
 
 Rel_D(reviewController, workflowService, "Updates review routing", "Internal")
-Rel_D(reviewController, tatRatingService, "Stops TAT, calculates rating, starts the next reviewer's TAT", "Internal")
+Rel_D(reviewController, tatService, "Stops TAT and starts the next reviewer's TAT", "Internal")
 Rel_D(reviewController, auditService, "Logs review remarks & actions", "Internal")
 Rel_D(reviewController, notificationService, "Triggers review notifications", "Internal")
 Rel_D(reviewController, database, "Reads assigned documents and AI feedback, marks the review Ongoing", "Eloquent ORM")
@@ -59,7 +59,7 @@ Rel_D(notificationController, notificationService, "Reads and marks notification
 Rel_D(notificationService, auditService, "Logs notification delivery failures", "Internal")
 
 Rel_D(workflowService, database, "Writes document records & revision entries", "Eloquent ORM")
-Rel_D(tatRatingService, database, "Reads holidays and saves TAT metrics", "Eloquent ORM")
+Rel_D(tatService, database, "Reads holidays and saves TAT metrics", "Eloquent ORM")
 Rel_D(auditService, database, "Writes append-only audit records", "Eloquent ORM")
 Rel_D(notificationService, database, "Writes in-system notifications", "Eloquent ORM")
 
