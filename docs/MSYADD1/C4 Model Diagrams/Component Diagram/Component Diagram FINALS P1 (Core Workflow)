@@ -19,7 +19,7 @@ Container_Boundary(backendBoundary, "DocuFlow Backend Application (Laravel / Apa
     Component(reviewController, "Review Controller", "Laravel Controller", "Handles UC-03 (Review Document): Processes L1/L2/L3 reviews, returns, forwards, endorsements, and approvals.")
 
     Component(workflowService, "Workflow & Routing Service", "Laravel Service", "Enforces 3-level sequential routing, resubmission reset to L1, and generates reference numbers (DOCTYPE-YYYY-NNNNN).")
-    Component(tatRatingService, "TAT & Rating Service", "Laravel Service", "Stops the reviewer's TAT when a review completes, calculates turnaround time in working days, excludes Philippine holidays, and assigns reviewer ratings.")
+    Component(tatService, "TAT Service", "Laravel Service", "Stops the reviewer's TAT when a review completes, calculates turnaround time in working days, and excludes Philippine holidays.")
     Component(aiClient, "Local AI Client Service", "Laravel HTTP Client", "Communicates with local Ollama API for duplicate submission detection and preliminary feedback.")
 
     Component(auditService, "Audit Logging Service", "Laravel Service", "Writes immutable, server-timestamped activity records for document, review, administrative, and integration events.")
@@ -45,7 +45,7 @@ Rel_D(submissionController, auditService, "Logs submission events", "Internal")
 Rel_D(submissionController, notificationService, "Triggers submission notifications", "Internal")
 
 Rel_D(reviewController, workflowService, "Updates review routing", "Internal")
-Rel_D(reviewController, tatRatingService, "Stops TAT and calculates rating", "Internal")
+Rel_D(reviewController, tatService, "Stops TAT", "Internal")
 Rel_D(reviewController, auditService, "Logs review remarks & actions", "Internal")
 Rel_D(reviewController, notificationService, "Triggers review notifications", "Internal")
 
@@ -54,7 +54,7 @@ Rel_D(webhookController, auditService, "Logs live edit timestamps", "Internal")
 
 Rel_D(docController, database, "Reads permitted records, statuses, and dashboard data", "Eloquent ORM")
 Rel_D(workflowService, database, "Writes document records & revision entries", "Eloquent ORM")
-Rel_D(tatRatingService, database, "Reads holidays and saves TAT metrics", "Eloquent ORM")
+Rel_D(tatService, database, "Reads holidays and saves TAT metrics", "Eloquent ORM")
 Rel_D(auditService, database, "Writes append-only audit records", "Eloquent ORM")
 Rel_D(notificationService, database, "Writes in-system alerts", "Eloquent ORM")
 
