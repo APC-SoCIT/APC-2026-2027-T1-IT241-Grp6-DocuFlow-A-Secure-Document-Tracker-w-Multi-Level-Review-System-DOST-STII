@@ -55,7 +55,7 @@ app/
     NotificationController.php in-system notifications
   Services/                Backend: business logic
     WorkflowService.php        routing between levels, reference numbers
-    TatService.php             turnaround time and the 5/3/1 rating
+    TatService.php             turnaround time (TAT) and the Overdue check
     NotificationService.php    creating notifications
   Models/                  Backend: User, Document, DocumentRevision, Review, Notification
 database/

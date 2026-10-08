@@ -6,8 +6,8 @@ use App\Models\Document;
 use Illuminate\Support\Carbon;
 
 /**
- * Turnaround time (TAT) and the reviewer rating. TAT is counted in plain
- * calendar days (Philippine time), from assignment to the review action.
+ * Turnaround time (TAT), counted in plain calendar days (Philippine time),
+ * from assignment to the review action.
  */
 class TatService
 {
@@ -55,17 +55,5 @@ class TatService
         $end = $to->copy()->setTimezone(self::TIMEZONE)->startOfDay();
 
         return (int) $start->diffInDays($end);
-    }
-
-    /**
-     * 5 if done before day 5, 3 if on day 5, 1 if after.
-     */
-    public function ratingFor(int $tatDays): int
-    {
-        return match (true) {
-            $tatDays < 5 => 5,
-            $tatDays === 5 => 3,
-            default => 1,
-        };
     }
 }

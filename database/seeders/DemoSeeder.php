@@ -52,7 +52,7 @@ class DemoSeeder extends Seeder
 
         // --- Mostly the first L1 (Sofia) ---------------------------------------
 
-        // 1. Approved after the full chain; slower reviews give ratings 5, 3 and 1.
+        // 1. Approved after the full chain; each review is slower (TAT 2, 5 and 7 days).
         $doc = $this->submit('Report', ['description' => 'Research outputs across all STII divisions, with recommendations for 2026.'], $this->l1, $this->daysAgo(20), $this->pdf('Annual Research Output Report 2025', [
             'Summary of research outputs across all STII divisions.',
             'Section 1: Publications and citations',
@@ -103,7 +103,7 @@ class DemoSeeder extends Seeder
 
         // --- Mostly the second L1 (Carlo) and second L2 (Beejay) ---------------
 
-        // 6. Approved via the second L1 and L2: ratings 5, 5 and 3.
+        // 6. Approved via the second L1 and L2 (TAT 1, 3 and 5 days).
         $doc = $this->submit('Financial Record', [], $this->l1b, $this->daysAgo(25), $this->xlsx('Q2 Expenses', [
             ['Month', 'Supplies', 'Travel', 'Total'],
             ['April', 18000, 9500, 27500],
@@ -214,7 +214,7 @@ class DemoSeeder extends Seeder
     }
 
     /**
-     * Mirror ReviewController: save the review with TAT/rating, move the
+     * Mirror ReviewController: save the review with its TAT, move the
      * document on and notify the next person.
      */
     private function review(Document $document, User $reviewer, string $action, Carbon $at, string $remarks, ?User $next = null): void
@@ -231,7 +231,6 @@ class DemoSeeder extends Seeder
             'remarks' => $remarks,
             'action' => $action,
             'tat_days' => $tatDays,
-            'rating' => $tat->ratingFor($tatDays),
         ]), $at);
 
         $ref = $document->reference_number;

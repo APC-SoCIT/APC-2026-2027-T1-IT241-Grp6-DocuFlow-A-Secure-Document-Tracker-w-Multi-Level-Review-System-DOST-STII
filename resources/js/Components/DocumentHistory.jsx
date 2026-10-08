@@ -98,7 +98,6 @@ export default function DocumentHistory({ revisions, reviews }) {
                                                     ['Action', action.label],
                                                     ['Reviewer', r.reviewer],
                                                     ['TAT', days(r.tat_days)],
-                                                    ['Rating', r.rating === null || r.rating === undefined ? null : `${r.rating} of 5`],
                                                 ],
                                                 notes: [
                                                     ['Assessment', r.assessment],

@@ -14,7 +14,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'remarks',
     'action',
     'tat_days',
-    'rating',
 ])]
 class Review extends Model
 {
@@ -33,7 +32,6 @@ class Review extends Model
         return [
             'review_level' => 'integer',
             'tat_days' => 'integer',
-            'rating' => 'integer',
         ];
     }
 

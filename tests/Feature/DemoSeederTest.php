@@ -31,14 +31,14 @@ class DemoSeederTest extends TestCase
             'returned_to_source' => 2,
         ], Document::query()->orderBy('status')->get()->countBy('status')->all());
 
-        // Approved in each section: 2, 5, 7 days -> 5, 3, 1 and 1, 3, 5 days -> 5, 5, 3.
+        // Approved in each section, with these TATs (days) per review.
         $this->assertEqualsCanonicalizing(
-            [[5, 3, 1], [5, 5, 3]],
+            [[2, 5, 7], [1, 3, 5]],
             Document::where('status', Document::STATUS_APPROVED)->get()
-                ->map(fn ($d) => $d->reviews()->orderBy('id')->pluck('rating')->all())->all(),
+                ->map(fn ($d) => $d->reviews()->orderBy('id')->pluck('tat_days')->all())->all(),
         );
 
-        // Every L1 and L2 has completed reviews, so the dashboard averages aren't empty.
+        // Every L1 and L2 has completed reviews.
         foreach (User::whereIn('role', [User::ROLE_L1, User::ROLE_L2])->get() as $reviewer) {
             $this->assertTrue(
                 Review::where('reviewer_id', $reviewer->id)->exists(),

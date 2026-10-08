@@ -9,9 +9,18 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/Components/ui/dialog';
+import { cn } from '@/lib/utils';
 
 function isEmpty(value) {
     return value === null || value === undefined || value === '';
+}
+
+// The last fact fills the rest of its row, so the grid never shows an empty cell.
+function lastFactClassName(count) {
+    return cn(
+        count % 2 === 1 && 'col-span-2',
+        { 0: 'sm:col-span-1', 1: 'sm:col-span-3', 2: 'sm:col-span-2' }[count % 3],
+    );
 }
 
 /**
@@ -38,8 +47,14 @@ export default function HistoryDialog({ open, onOpenChange, record }) {
 
                 <div className="min-h-0 space-y-5 overflow-y-auto px-5 py-5">
                     <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-border ring-1 ring-border sm:grid-cols-3">
-                        {(record?.facts ?? []).map(([label, value]) => (
-                            <div key={label} className="bg-background px-3 py-2.5">
+                        {(record?.facts ?? []).map(([label, value], i, facts) => (
+                            <div
+                                key={label}
+                                className={cn(
+                                    'bg-background px-3 py-2.5',
+                                    i === facts.length - 1 && lastFactClassName(facts.length),
+                                )}
+                            >
                                 <dt className="text-xs text-muted-foreground">{label}</dt>
                                 <dd className="mt-0.5 truncate text-[13px] font-medium">{isEmpty(value) ? '—' : value}</dd>
                             </div>

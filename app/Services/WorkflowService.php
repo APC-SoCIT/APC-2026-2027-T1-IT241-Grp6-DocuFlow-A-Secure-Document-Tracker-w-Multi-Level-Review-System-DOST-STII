@@ -193,7 +193,7 @@ class WorkflowService
     }
 
     /**
-     * Record a review action with its TAT and rating, move the document on,
+     * Record a review action with its TAT, move the document on,
      * and notify whoever is next. Returns the confirmation message.
      */
     public function review(Document $document, User $reviewer, string $action, ?string $assessment, string $remarks, ?int $l2ReviewerId = null): string
@@ -209,7 +209,6 @@ class WorkflowService
                 'remarks' => $remarks,
                 'action' => $action,
                 'tat_days' => $tatDays,
-                'rating' => $this->tat->ratingFor($tatDays),
             ]);
 
             return match ($action) {

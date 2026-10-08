@@ -111,7 +111,7 @@ class DocumentWorkflowTest extends TestCase
         $this->assertNull($document->assigned_reviewer_id);
 
         $this->assertSame(['forward', 'endorse', 'approve'], $document->reviews()->orderBy('id')->pluck('action')->all());
-        $this->assertSame([5, 5, 5], $document->reviews()->orderBy('id')->pluck('rating')->all());
+        $this->assertSame([0, 0, 0], $document->reviews()->orderBy('id')->pluck('tat_days')->all());
         $this->assertTrue($this->source->notifications()->where('message', 'like', '%approved%')->exists());
     }
 
@@ -378,9 +378,9 @@ class DocumentWorkflowTest extends TestCase
         $this->assertSame("POLICY-{$year}-00001", $this->submit(['document_type' => 'Policy Draft'])->reference_number);
     }
 
-    public function test_tat_rating_is_5_before_day_5_then_3_on_day_5_then_1_after(): void
+    public function test_tat_is_the_calendar_days_from_assignment_to_the_review_action(): void
     {
-        foreach ([4 => 5, 5 => 3, 6 => 1] as $days => $expectedRating) {
+        foreach ([4, 5, 6] as $days) {
             $document = $this->submit();
 
             $this->travel($days)->days();
@@ -388,8 +388,7 @@ class DocumentWorkflowTest extends TestCase
             $this->travelBack();
 
             $review = $document->reviews()->latest('id')->firstOrFail();
-            $this->assertSame($days, $review->tat_days);
-            $this->assertSame($expectedRating, $review->rating, "rating after {$days} days");
+            $this->assertSame($days, $review->tat_days, "TAT after {$days} days");
         }
     }
 
