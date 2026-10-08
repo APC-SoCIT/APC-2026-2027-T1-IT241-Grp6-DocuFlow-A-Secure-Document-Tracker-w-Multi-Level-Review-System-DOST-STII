@@ -22,6 +22,8 @@ Container_Boundary(backendBoundary, "DocuFlow Backend Application (Laravel / Apa
 
     Component(aiKnowledgeService, "AI Knowledge Service", "Laravel Service", "Records Accept/Modify/Disregard/Flag actions on AI suggestions, creates Pending AI Knowledge from remarks marked by reviewers, and supplies Active AI Knowledge to the AI client.")
     Component(auditService, "Audit Logging Service", "Laravel Service", "Writes immutable, server-timestamped activity records for document, review, administrative, and integration events.")
+    Component(workflowService, "Workflow & Routing Service", "Laravel Service", "Enforces 3-level sequential routing, resubmission reset to L1, and generates reference numbers (DOCTYPE-YYYY-NNNNN).")
+    Component(tatService, "TAT Service", "Laravel Service", "Starts the assigned reviewer's TAT on submission, resubmission, forward, and endorsement, and stops it when the review completes. Counts working days and excludes Philippine holidays and the time spent waiting for the Document Source.")
 }
 
 ContainerDb(database, "DocuFlow Database", "MySQL", "Stores user accounts, reviewer eligibility, holidays, AI knowledge, audit logs, and in-system notifications.")
@@ -33,6 +35,8 @@ Lay_R(adminController, auditController)
 Lay_R(auditController, notificationService)
 Lay_R(notificationService, overdueMonitorService)
 Lay_R(aiKnowledgeService, auditService)
+Lay_R(auditService, workflowService)
+Lay_R(workflowService, tatService)
 
 Rel_D(frontend, authMiddleware, "Sends Admin/Audit requests", "HTTPS / JSON")
 
@@ -44,6 +48,9 @@ Rel_D(tatScheduler, notificationService, "Triggers overdue notifications", "Inte
 
 Rel_D(adminController, aiKnowledgeService, "Manages AI knowledge", "Internal")
 Rel_D(adminController, auditService, "Logs admin changes", "Internal")
+Rel_D(adminController, workflowService, "Returns documents of disabled or ineligible reviewers and reassigns Level 3 documents", "Internal")
+Rel_D(adminController, tatService, "Stops and starts reviewer TAT on return or reassignment", "Internal")
+Rel_D(adminController, notificationService, "Triggers return and reassignment notifications", "Internal")
 Rel_D(notificationService, auditService, "Logs delivery failures", "Internal")
 
 Rel_D(aiKnowledgeService, database, "Reads and writes AI knowledge", "Eloquent ORM")
@@ -52,6 +59,8 @@ Rel_D(adminController, database, "Updates users, eligibility, holidays, AI setti
 Rel_D(auditController, database, "Reads audit logs", "Eloquent ORM")
 Rel_D(overdueMonitorService, database, "Reads pending reviews and holidays", "Eloquent ORM")
 Rel_D(notificationService, database, "Writes in-system notifications", "Eloquent ORM")
+Rel_D(workflowService, database, "Writes document records & revision entries", "Eloquent ORM")
+Rel_D(tatService, database, "Reads holidays and saves TAT metrics", "Eloquent ORM")
 
 Rel_D(notificationService, emailService, "Sends overdue reminder emails", "SMTP")
 
