@@ -51,7 +51,7 @@ class ReviewController extends Controller
             ],
         ], [
             'action.in' => 'That action is not available at this review level.',
-            'remarks.required' => 'Add your remarks. When you return a document, they tell the Document Source what to change.',
+            'remarks.required' => 'Add your official remarks. When you return a document, they tell the Document Source what to change.',
             'l2_reviewer_id.required' => 'Select a Section Head (L2) to forward to.',
             'l2_reviewer_id.not_in' => 'Self-Review Restriction: you cannot forward a document to yourself or its submitter.',
             'l2_reviewer_id.exists' => 'Select a valid Section Head (L2).',

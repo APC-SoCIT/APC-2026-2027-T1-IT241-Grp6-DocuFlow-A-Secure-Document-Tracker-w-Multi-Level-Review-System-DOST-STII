@@ -23,7 +23,7 @@ const FINAL = 'Your review is recorded and can’t be changed afterwards.';
 
 // Same wording as the server-side validation messages.
 const MESSAGES = {
-    remarks: 'Add your remarks. When you return a document, they tell the Document Source what to change.',
+    remarks: 'Add your official remarks. When you return a document, they tell the Document Source what to change.',
     l2_reviewer_id: 'Select a Section Head (L2) to forward to.',
 };
 
