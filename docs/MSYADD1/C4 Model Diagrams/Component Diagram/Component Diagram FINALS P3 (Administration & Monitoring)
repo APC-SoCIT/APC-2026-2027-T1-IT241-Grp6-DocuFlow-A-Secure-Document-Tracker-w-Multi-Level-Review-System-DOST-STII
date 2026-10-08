@@ -17,7 +17,7 @@ Container_Boundary(backendBoundary, "DocuFlow Backend Application (Laravel / Apa
 
     Component(adminController, "System Admin Controller", "Laravel Controller", "Handles UC-04 (Manage System Administration): Manages users, reviewer eligibility, holiday calendar, and AI configuration.")
     Component(auditController, "Audit Trail Controller", "Laravel Controller", "Handles UC-05 (View Audit Trail): Queries immutable audit logs and generates CSV exports.")
-    Component(overdueMonitorService, "Overdue Monitoring Service", "Laravel Service", "Evaluates pending reviews against the holiday calendar to detect documents that have become overdue.")
+    Component(overdueMonitorService, "Overdue Monitoring Service", "Laravel Service", "Evaluates pending reviews against the holiday calendar and the five-working-day review period to detect documents that have become overdue.")
     Component(notificationService, "Notification Service", "Laravel Service", "Creates in-system notification records and prepares workflow, review, and overdue reminder emails for delivery.")
 
     Component(aiKnowledgeService, "AI Knowledge Service", "Laravel Service", "Records Accept/Modify/Disregard/Flag actions on AI suggestions, creates Pending AI Knowledge from remarks marked by reviewers, and supplies Active AI Knowledge to the AI client.")
