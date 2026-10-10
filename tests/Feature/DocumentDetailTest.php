@@ -69,6 +69,8 @@ class DocumentDetailTest extends TestCase
                 ->where('document.tat_days', 0)
                 ->where('document.tat_is_final', false)
                 ->where('document.is_overdue', false)
+                ->where('document.revision_count', 0)
+                ->has('revisions', 0)
                 ->where('preview.kind', 'google'));
 
         // On day 6 with the same reviewer it is overdue (more than 5 days).
@@ -114,18 +116,18 @@ class DocumentDetailTest extends TestCase
                 ->where('document.is_overdue', false)
                 // Latest return remarks at the top of the page.
                 ->where('lastReturn.remarks', 'Totals are wrong.')
-                // Revision history.
-                ->has('revisions', 2)
+                // Revision history: the one resubmission.
+                ->where('document.revision_count', 1)
+                ->has('revisions', 1)
                 ->where('revisions.0.revision_number', 1)
-                ->where('revisions.1.revision_number', 2)
-                ->where('revisions.1.submitted_by', $this->source->name)
-                ->where('revisions.1.change_note', 'Added the budget table.')
-                // Review remarks history, each matched to its revision.
+                ->where('revisions.0.submitted_by', $this->source->name)
+                ->where('revisions.0.change_note', 'Added the budget table.')
+                // Review remarks history: the original (null), then revision 1.
                 ->has('reviews', 2)
-                ->where('reviews.0.revision_number', 1)
+                ->where('reviews.0.revision_number', null)
                 ->where('reviews.0.remarks', 'Add the budget table.')
                 ->where('reviews.0.tat_days', 2)
-                ->where('reviews.1.revision_number', 2)
+                ->where('reviews.1.revision_number', 1)
                 ->where('reviews.1.reviewer', $this->l1->name)
                 ->where('reviews.1.action', 'return')
                 ->where('reviews.1.review_level', 1));
@@ -161,7 +163,7 @@ class DocumentDetailTest extends TestCase
                 ->where('preview.kind', 'missing')
                 ->where('document.reference_number', $document->reference_number)
                 ->where('lastReturn.remarks', 'Fix page 2.')
-                ->has('revisions', 1)
+                ->has('revisions', 0)
                 ->has('reviews', 1));
     }
 

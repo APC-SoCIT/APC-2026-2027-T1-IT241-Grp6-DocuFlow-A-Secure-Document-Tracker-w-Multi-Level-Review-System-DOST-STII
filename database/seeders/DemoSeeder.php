@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Document;
 use App\Models\Notification;
+use App\Models\Review;
 use App\Models\User;
 use App\Services\TatService;
 use App\Services\WorkflowService;
@@ -63,13 +64,13 @@ class DemoSeeder extends Seeder
         $this->review($doc, $this->l2, 'endorse', $this->daysAgo(13), 'Endorsed for approval.');
         $this->review($doc, $this->l3, 'approve', $this->daysAgo(6), 'Approved for publication.');
 
-        // 2. Returned by L1, then resubmitted as revision 2: back with the same L1, opened.
+        // 2. Returned by L1, then resubmitted as revision 1: back with the same L1, opened.
         $doc = $this->submit('Other', ['other' => 'Equipment Inventory', 'description' => 'Laboratory equipment on hand as of September 2026.'], $this->l1, $this->daysAgo(7), $this->pdf('Equipment Inventory Summary', [
             'Inventory of laboratory equipment as of September 2026.',
             'Totals per division are listed below.',
         ]));
         $this->review($doc, $this->l1, 'return', $this->daysAgo(5), 'Please add the serial numbers for each item.');
-        $this->resubmit($doc, $this->daysAgo(3), 'Added serial numbers for all items.', $this->pdf('Equipment Inventory Summary (rev. 2)', [
+        $this->resubmit($doc, $this->daysAgo(3), 'Added serial numbers for all items.', $this->pdf('Equipment Inventory Summary (rev. 1)', [
             'Inventory of laboratory equipment as of September 2026.',
             'Serial numbers added for every item.',
         ]));
@@ -203,11 +204,6 @@ class DemoSeeder extends Seeder
         ]);
         $this->stamp($document, $at);
 
-        $this->stamp($document->revisions()->create([
-            'revision_number' => 1,
-            'submitted_by' => $submitter->id,
-        ]), $at);
-
         $this->notify($l1, $document, "{$submitter->name} submitted {$document->reference_number} for your review.", $at);
 
         return $document;
@@ -222,8 +218,11 @@ class DemoSeeder extends Seeder
         $level = $document->current_review_level;
         $tat = app(TatService::class);
         $tatDays = $tat->daysSinceAssignment($document, $at);
+        $revision = $document->latestRevision();
 
-        $this->stamp($document->reviews()->create([
+        $this->stamp(Review::create([
+            'document_id' => $revision ? null : $document->id,
+            'revision_id' => $revision?->id,
             'reviewer_id' => $reviewer->id,
             'review_level' => $level,
             'remarks' => $remarks,
@@ -261,24 +260,29 @@ class DemoSeeder extends Seeder
     }
 
     /**
-     * Mirror DocumentController::resubmit: new revision, back to the same L1.
+     * Mirror WorkflowService::resubmit: new revision with its own file, back
+     * to the same L1. The original file stays on the document.
      *
      * @param  array{0: string, 1: string, 2: string}  $file
      */
     private function resubmit(Document $document, Carbon $at, string $changeNote, array $file): void
     {
         [$contents, $extension, $fileName] = $file;
-        Storage::delete($document->file_path);
         $path = 'documents/demo-'.Str::random(16).'.'.$extension;
         Storage::put($path, $contents);
 
         $l1 = User::findOrFail($document->reviews()->where('review_level', 1)->latest('id')->value('reviewer_id'));
-        $revisionNumber = $document->revisions()->max('revision_number') + 1;
+        $revisionNumber = $document->revisions()->count() + 1;
 
-        $document->update([
+        $this->stamp($document->revisions()->create([
+            'revision_number' => $revisionNumber,
+            'change_note' => $changeNote,
             'file_path' => $path,
             'file_name' => $fileName,
-            'resubmission_count' => $document->resubmission_count + 1,
+            'submitted_by' => $document->submitted_by,
+        ]), $at);
+
+        $document->update([
             'status' => Document::STATUS_PENDING_L1,
             'review_state' => Document::REVIEW_STATE_NEW,
             'current_review_level' => 1,
@@ -286,12 +290,6 @@ class DemoSeeder extends Seeder
             'assigned_at' => $at,
         ]);
         $this->stamp($document, $document->created_at, $at);
-
-        $this->stamp($document->revisions()->create([
-            'revision_number' => $revisionNumber,
-            'change_note' => $changeNote,
-            'submitted_by' => $document->submitted_by,
-        ]), $at);
 
         $this->notify($l1, $document, "{$document->submitter->name} resubmitted {$document->reference_number} (revision {$revisionNumber}) for your review.", $at);
     }

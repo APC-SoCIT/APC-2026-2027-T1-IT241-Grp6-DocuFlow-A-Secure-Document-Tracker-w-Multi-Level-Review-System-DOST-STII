@@ -112,8 +112,9 @@ class WorkflowService
     }
 
     /**
-     * First submission: new reference number, revision 1, assigned to the
-     * chosen L1 at Level 1.
+     * First submission: new reference number, assigned to the chosen L1 at
+     * Level 1. The link or file is the original, on the document row; no
+     * revision is made until the document is resubmitted.
      */
     public function submit(
         User $submitter,
@@ -143,11 +144,6 @@ class WorkflowService
                 'assigned_at' => now(),
             ]);
 
-            $document->revisions()->create([
-                'revision_number' => 1,
-                'submitted_by' => $submitter->id,
-            ]);
-
             $this->notifications->notify(
                 $l1ReviewerId,
                 $document,
@@ -159,29 +155,29 @@ class WorkflowService
     }
 
     /**
-     * Resubmission: same reference number, new revision, back to the same L1,
-     * reset to Level 1. The Date Submitted doesn't change.
+     * Resubmission: same reference number, new revision (1, 2, 3...) with its
+     * own link or file, back to the same L1, reset to Level 1. The original
+     * submission and the Date Submitted don't change.
      */
     public function resubmit(Document $document, User $submitter, ?string $link, ?string $filePath, string $changeNote, int $l1ReviewerId, ?string $fileName = null): void
     {
         DB::transaction(function () use ($document, $submitter, $link, $filePath, $changeNote, $l1ReviewerId, $fileName) {
-            $document->update([
+            $revisionNumber = $document->revisions()->count() + 1;
+            $document->revisions()->create([
+                'revision_number' => $revisionNumber,
+                'change_note' => $changeNote,
                 'google_workspace_link' => $link,
                 'file_path' => $filePath,
                 'file_name' => $filePath === null ? null : $fileName,
-                'resubmission_count' => $document->resubmission_count + 1,
+                'submitted_by' => $submitter->id,
+            ]);
+
+            $document->update([
                 'status' => Document::STATUS_PENDING_L1,
                 'review_state' => Document::REVIEW_STATE_NEW,
                 'current_review_level' => 1,
                 'assigned_reviewer_id' => $l1ReviewerId,
                 'assigned_at' => now(),
-            ]);
-
-            $revisionNumber = $document->revisions()->max('revision_number') + 1;
-            $document->revisions()->create([
-                'revision_number' => $revisionNumber,
-                'change_note' => $changeNote,
-                'submitted_by' => $submitter->id,
             ]);
 
             $this->notifications->notify(
@@ -202,7 +198,12 @@ class WorkflowService
         $tatDays = $this->tat->daysSinceAssignment($document);
 
         return DB::transaction(function () use ($document, $reviewer, $level, $action, $remarks, $l2ReviewerId, $tatDays) {
-            $document->reviews()->create([
+            // The review is of the latest submission: the original until the
+            // document is resubmitted, then its latest revision. Never both.
+            $revision = $document->latestRevision();
+            Review::create([
+                'document_id' => $revision ? null : $document->id,
+                'revision_id' => $revision?->id,
                 'reviewer_id' => $reviewer->id,
                 'review_level' => $level,
                 'remarks' => $remarks,

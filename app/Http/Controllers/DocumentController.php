@@ -122,7 +122,7 @@ class DocumentController extends Controller
             ->when(($filters['role'] ?? null) === 'submitted', fn (Builder $q) => $q->where('submitted_by', $user->id))
             ->when(($filters['role'] ?? null) === 'assigned', fn (Builder $q) => $q->where(fn (Builder $q) => $q
                 ->where('assigned_reviewer_id', $user->id)
-                ->orWhereHas('reviews', fn (Builder $r) => $r->where('reviewer_id', $user->id))));
+                ->orWhere(fn (Builder $q) => $q->reviewedBy($user))));
     }
 
     /**
@@ -171,7 +171,8 @@ class DocumentController extends Controller
                 'submitted_at' => $document->submitted_at,
                 'status' => $document->status,
                 'review_state' => $document->review_state,
-                'revision_number' => $document->revisions()->max('revision_number'),
+                // Resubmissions only: 0 until the document is resubmitted.
+                'revision_count' => $document->revisions()->count(),
                 'review_level' => $isPending ? $document->current_review_level : null,
                 'assigned_reviewer' => $document->assignedReviewer?->name,
                 'tat_days' => $this->tat->currentTat($document),
@@ -190,19 +191,20 @@ class DocumentController extends Controller
     }
 
     /**
-     * Serve an uploaded file to someone allowed to view the document:
-     * PDFs inline (for the preview iframe), .docx/.xlsx as a download.
+     * Serve the latest submission's uploaded file to someone allowed to view
+     * the document: PDFs inline (for the preview iframe), .docx/.xlsx as a download.
      */
     public function file(Request $request, Document $document): StreamedResponse
     {
         abort_unless($document->isVisibleTo($request->user()), 403);
-        abort_if($document->file_path === null || ! Storage::exists($document->file_path), 404);
+        $submission = $document->latestSubmission();
+        abort_if($submission->file_path === null || ! Storage::exists($submission->file_path), 404);
 
-        $extension = pathinfo($document->file_path, PATHINFO_EXTENSION);
+        $extension = pathinfo($submission->file_path, PATHINFO_EXTENSION);
 
         return Storage::response(
-            $document->file_path,
-            $document->displayFileName(),
+            $submission->file_path,
+            $submission->displayFileName(),
             [],
             $extension === 'pdf' ? 'inline' : 'attachment',
         );
@@ -232,14 +234,15 @@ class DocumentController extends Controller
 
     /**
      * Revision history and review remarks history, oldest first. Both are
-     * read-only. Each review is matched to the revision it was made on.
+     * read-only. Each review names what it reviewed: a revision number, or
+     * null for the original submission.
      *
      * @return array{revisions: list<array<string, mixed>>, reviews: list<array<string, mixed>>}
      */
     private function historyFor(Document $document): array
     {
         $revisions = $document->revisions()->with('submitter:id,name')->orderBy('revision_number')->get();
-        $reviews = $document->reviews()->with('reviewer:id,name')->orderBy('id')->get();
+        $reviews = $document->reviews()->with(['reviewer:id,name', 'revision:id,revision_number'])->orderBy('id')->get();
 
         return [
             'revisions' => $revisions->map(fn ($revision) => [
@@ -251,9 +254,7 @@ class DocumentController extends Controller
             ])->all(),
             'reviews' => $reviews->map(fn ($review) => [
                 'id' => $review->id,
-                'revision_number' => $revisions
-                    ->filter(fn ($revision) => $revision->created_at <= $review->created_at)
-                    ->max('revision_number') ?? 1,
+                'revision_number' => $review->revision?->revision_number,
                 'review_level' => $review->review_level,
                 'reviewer' => $review->reviewer->name,
                 'action' => $review->action,
@@ -265,31 +266,33 @@ class DocumentController extends Controller
     }
 
     /**
-     * What the left-hand preview panel should show.
+     * What the left-hand preview panel should show: the latest submission.
      *
      * @return array<string, mixed>
      */
     private function previewFor(Document $document): array
     {
-        if ($document->google_workspace_link !== null) {
+        $submission = $document->latestSubmission();
+
+        if ($submission->google_workspace_link !== null) {
             return [
                 'kind' => 'google',
-                'embed_url' => $document->googlePreviewUrl(),
-                'open_url' => $document->google_workspace_link,
+                'embed_url' => $submission->googlePreviewUrl(),
+                'open_url' => $submission->google_workspace_link,
             ];
         }
 
         // The record, remarks and history stay usable even if the upload is gone.
-        if ($document->file_path === null || ! Storage::exists($document->file_path)) {
+        if ($submission->file_path === null || ! Storage::exists($submission->file_path)) {
             return ['kind' => 'missing'];
         }
 
-        $extension = pathinfo((string) $document->file_path, PATHINFO_EXTENSION);
+        $extension = pathinfo((string) $submission->file_path, PATHINFO_EXTENSION);
 
         return [
             'kind' => $extension === 'pdf' ? 'pdf' : 'file',
             'extension' => $extension,
-            'file_name' => $document->displayFileName(),
+            'file_name' => $submission->displayFileName(),
             'open_url' => route('documents.file', $document),
         ];
     }

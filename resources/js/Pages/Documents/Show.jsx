@@ -92,7 +92,7 @@ export default function Show({ document, revisions, reviews, lastReturn, canResu
                                 <Detail label="Status">
                                     <StatusBadge status={document.status} />
                                 </Detail>
-                                <Detail label="Revision">{document.revision_number}</Detail>
+                                <Detail label="Revisions">{document.revision_count}</Detail>
                                 <Detail label="Review level">
                                     {document.review_level ? `Level ${document.review_level}` : '—'}
                                 </Detail>
@@ -115,7 +115,7 @@ export default function Show({ document, revisions, reviews, lastReturn, canResu
 
                     {review && <ReviewPanel controller={reviewController} />}
 
-                    <DocumentHistory revisions={revisions} reviews={reviews} />
+                    <DocumentHistory document={document} revisions={revisions} reviews={reviews} />
                 </div>
             </div>
         </AuthenticatedLayout>

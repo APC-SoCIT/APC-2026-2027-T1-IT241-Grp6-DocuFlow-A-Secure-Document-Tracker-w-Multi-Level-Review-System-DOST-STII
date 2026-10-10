@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'document_id',
+    'revision_id',
     'reviewer_id',
     'review_level',
     'remarks',
@@ -34,9 +35,20 @@ class Review extends Model
         ];
     }
 
+    /**
+     * Set when this review is of the original submission.
+     */
     public function document(): BelongsTo
     {
         return $this->belongsTo(Document::class);
+    }
+
+    /**
+     * Set when this review is of a revision (then document_id is null).
+     */
+    public function revision(): BelongsTo
+    {
+        return $this->belongsTo(DocumentRevision::class);
     }
 
     public function reviewer(): BelongsTo

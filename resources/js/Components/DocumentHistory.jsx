@@ -17,6 +17,11 @@ function days(n) {
     return n === null || n === undefined ? null : `${n} ${n === 1 ? 'day' : 'days'}`;
 }
 
+// What a review was of: the original submission, or a revision (null = original).
+function reviewedLabel(revisionNumber) {
+    return revisionNumber ? `Revision ${revisionNumber}` : 'Original submission';
+}
+
 // One row of the timeline; the whole row opens the full record.
 function Entry({ icon: Icon, iconClassName, title, meta, date, text, onClick }) {
     return (
@@ -44,9 +49,10 @@ function Entry({ icon: Icon, iconClassName, title, meta, date, text, onClick }) 
 
 /**
  * Review remarks history and revision history (read-only), as a compact
- * timeline in the right column. Each entry opens its full record.
+ * timeline in the right column. Each entry opens its full record. The
+ * original submission is the document itself, listed below its revisions.
  */
-export default function DocumentHistory({ revisions, reviews }) {
+export default function DocumentHistory({ document, revisions, reviews }) {
     // The last opened record stays set while the dialog animates closed.
     const [dialog, setDialog] = useState(null); // see HistoryDialog's `record`
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -85,7 +91,7 @@ export default function DocumentHistory({ revisions, reviews }) {
                                         icon={action.icon}
                                         iconClassName={action.className}
                                         title={`${action.label} at Level ${r.review_level}`}
-                                        meta={`${r.reviewer} · Revision ${r.revision_number}${r.tat_days !== null && r.tat_days !== undefined ? ` · TAT ${days(r.tat_days)}` : ''}`}
+                                        meta={`${r.reviewer} · ${reviewedLabel(r.revision_number)}${r.tat_days !== null && r.tat_days !== undefined ? ` · TAT ${days(r.tat_days)}` : ''}`}
                                         date={formatDate(r.reviewed_at)}
                                         text={r.remarks}
                                         onClick={() =>
@@ -93,7 +99,7 @@ export default function DocumentHistory({ revisions, reviews }) {
                                                 title: `${action.label} at Level ${r.review_level}`,
                                                 subtitle: `${r.reviewer} · ${formatDateTime(r.reviewed_at)}`,
                                                 facts: [
-                                                    ['Revision', r.revision_number],
+                                                    ['Reviewed', reviewedLabel(r.revision_number)],
                                                     ['Review level', `Level ${r.review_level}`],
                                                     ['Action', action.label],
                                                     ['Reviewer', r.reviewer],
@@ -111,33 +117,46 @@ export default function DocumentHistory({ revisions, reviews }) {
 
                 <TabsContent value="revisions" className="px-2">
                     <ol>
-                        {[...revisions].reverse().map((r) => {
-                            const first = r.revision_number === 1;
-                            const note = r.change_note ?? (first ? 'First submission' : null);
-                            return (
-                                <Entry
-                                    key={r.id}
-                                    icon={FileTextIcon}
-                                    iconClassName="bg-muted text-muted-foreground"
-                                    title={`Revision ${r.revision_number}`}
-                                    meta={`${first ? 'Submitted' : 'Resubmitted'} by ${r.submitted_by}`}
-                                    date={formatDate(r.submitted_at)}
-                                    text={note}
-                                    onClick={() =>
-                                        view({
-                                            title: `Revision ${r.revision_number}`,
-                                            subtitle: `${first ? 'Submitted' : 'Resubmitted'} by ${r.submitted_by} · ${formatDateTime(r.submitted_at)}`,
-                                            facts: [
-                                                ['Revision', r.revision_number],
-                                                [first ? 'Date Submitted' : 'Resubmitted', formatDate(r.submitted_at)],
-                                                [first ? 'Submitted by' : 'Resubmitted by', r.submitted_by],
-                                            ],
-                                            notes: [['Change note', note]],
-                                        })
-                                    }
-                                />
-                            );
-                        })}
+                        {[...revisions].reverse().map((r) => (
+                            <Entry
+                                key={r.id}
+                                icon={FileTextIcon}
+                                iconClassName="bg-muted text-muted-foreground"
+                                title={`Revision ${r.revision_number}`}
+                                meta={`Resubmitted by ${r.submitted_by}`}
+                                date={formatDate(r.submitted_at)}
+                                text={r.change_note}
+                                onClick={() =>
+                                    view({
+                                        title: `Revision ${r.revision_number}`,
+                                        subtitle: `Resubmitted by ${r.submitted_by} · ${formatDateTime(r.submitted_at)}`,
+                                        facts: [
+                                            ['Revision', r.revision_number],
+                                            ['Resubmitted', formatDate(r.submitted_at)],
+                                            ['Resubmitted by', r.submitted_by],
+                                        ],
+                                        notes: [['Change note', r.change_note]],
+                                    })
+                                }
+                            />
+                        ))}
+                        <Entry
+                            icon={FileTextIcon}
+                            iconClassName="bg-muted text-muted-foreground"
+                            title="Original submission"
+                            meta={`Submitted by ${document.submitted_by}`}
+                            date={formatDate(document.submitted_at)}
+                            onClick={() =>
+                                view({
+                                    title: 'Original submission',
+                                    subtitle: `Submitted by ${document.submitted_by} · ${formatDateTime(document.submitted_at)}`,
+                                    facts: [
+                                        ['Date Submitted', formatDate(document.submitted_at)],
+                                        ['Submitted by', document.submitted_by],
+                                    ],
+                                })
+                            }
+                        />
                     </ol>
                 </TabsContent>
             </Tabs>

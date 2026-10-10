@@ -29,10 +29,11 @@ class DropRatingAndAssessmentMigrationTest extends TestCase
         $source = User::where('email', 'source@docuflow.test')->firstOrFail();
         $l1 = User::where('email', 'l1@docuflow.test')->firstOrFail();
         $document = app(WorkflowService::class)->submit($source, 'Memo', null, null, 'https://docs.google.com/document/d/x/edit', null, $l1->id);
-        $row = ['document_id' => $document->id, 'reviewer_id' => $l1->id, 'review_level' => 1, 'tat_days' => 2, 'rating' => 5];
-        $both = DB::table('reviews')->insertGetId([...$row, 'action' => 'forward', 'assessment' => 'Complete.', 'remarks' => 'Good to go.']);
-        $onlyAssessment = DB::table('reviews')->insertGetId([...$row, 'action' => 'forward', 'assessment' => 'Complete.', 'remarks' => null]);
-        $noAssessment = DB::table('reviews')->insertGetId([...$row, 'action' => 'return', 'assessment' => '  ', 'remarks' => 'Fix page 2.']);
+        // One review per level for each submission, so each row is at its own level.
+        $row = ['document_id' => $document->id, 'reviewer_id' => $l1->id, 'tat_days' => 2, 'rating' => 5];
+        $both = DB::table('reviews')->insertGetId([...$row, 'review_level' => 1, 'action' => 'forward', 'assessment' => 'Complete.', 'remarks' => 'Good to go.']);
+        $onlyAssessment = DB::table('reviews')->insertGetId([...$row, 'review_level' => 2, 'action' => 'endorse', 'assessment' => 'Complete.', 'remarks' => null]);
+        $noAssessment = DB::table('reviews')->insertGetId([...$row, 'review_level' => 3, 'action' => 'return', 'assessment' => '  ', 'remarks' => 'Fix page 2.']);
 
         $migration->up();
 

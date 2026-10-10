@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Document;
+use App\Models\DocumentRevision;
 use App\Models\Notification;
 use App\Models\Review;
 use App\Models\User;
@@ -58,11 +59,13 @@ class DemoSeederTest extends TestCase
             Document::with('submitter')->get()->pluck('submitter.role')->unique()->values()->all(),
         );
 
-        // The resubmitted document is on revision 2, back with its original L1.
-        $resubmitted = Document::whereHas('revisions', fn ($q) => $q->where('revision_number', 2))->firstOrFail();
+        // One document was resubmitted once (revision 1), back with its original L1.
+        // The others were never resubmitted, so they have no revisions.
+        $this->assertSame(1, DocumentRevision::count());
+        $resubmitted = Document::has('revisions')->firstOrFail();
+        $this->assertSame(1, $resubmitted->revisions()->value('revision_number'));
         $this->assertSame('pending_l1_review', $resubmitted->status);
-        $this->assertSame(1, $resubmitted->resubmission_count);
-        $this->assertTrue($resubmitted->submitted_at->lt($resubmitted->revisions()->where('revision_number', 2)->value('created_at')));
+        $this->assertTrue($resubmitted->submitted_at->lt($resubmitted->revisions()->where('revision_number', 1)->value('created_at')));
         $this->assertSame(0, Document::whereNull('submitted_at')->count());
         $this->assertSame(
             $resubmitted->reviews()->where('review_level', 1)->value('reviewer_id'),

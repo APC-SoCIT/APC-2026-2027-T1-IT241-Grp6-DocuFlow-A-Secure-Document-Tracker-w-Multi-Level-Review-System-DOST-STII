@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasAttachment;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -17,7 +18,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'file_path',
     'file_name',
     'submitted_at',
-    'resubmission_count',
     'status',
     'review_state',
     'current_review_level',
@@ -27,6 +27,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class Document extends Model
 {
+    use HasAttachment;
+
     public const STATUS_PENDING_L1 = 'pending_l1_review';
     public const STATUS_PENDING_L2 = 'pending_l2_review';
     public const STATUS_PENDING_L3 = 'pending_l3_review';
@@ -75,30 +77,8 @@ class Document extends Model
         return [
             'current_review_level' => 'integer',
             'submitted_at' => 'datetime',
-            'resubmission_count' => 'integer',
             'assigned_at' => 'datetime',
         ];
-    }
-
-    /**
-     * Embeddable URL for a Google Workspace link (its /preview form, no API
-     * key needed), or null when the link isn't in a recognised shape.
-     */
-    public function googlePreviewUrl(): ?string
-    {
-        $link = (string) $this->google_workspace_link;
-
-        // docs.google.com/document/d/ID/edit, drive.google.com/file/d/ID/view, ...
-        if (preg_match('#^(https?://(?:docs|drive)\.google\.com/(?:document|spreadsheets|presentation|file)/d/[\w-]+)#', $link, $m)) {
-            return $m[1].'/preview';
-        }
-
-        // drive.google.com/open?id=ID
-        if (preg_match('#^https?://drive\.google\.com/open\?(?:.*&)?id=([\w-]+)#', $link, $m)) {
-            return 'https://drive.google.com/file/d/'.$m[1].'/preview';
-        }
-
-        return null;
     }
 
     /**
@@ -110,16 +90,6 @@ class Document extends Model
         return $this->document_type === 'Other' && filled($this->document_type_other)
             ? $this->document_type_other
             : $this->document_type;
-    }
-
-    /**
-     * The uploaded file's original name. Uploads saved before names were
-     * kept fall back to the document type, e.g. "Policy Draft.pdf".
-     */
-    public function displayFileName(): string
-    {
-        return $this->file_name
-            ?? $this->typeLabel().'.'.pathinfo((string) $this->file_path, PATHINFO_EXTENSION);
     }
 
     public function statusLabel(): string
@@ -137,7 +107,19 @@ class Document extends Model
         $query->where(fn (Builder $q) => $q
             ->where('submitted_by', $user->id)
             ->orWhere('assigned_reviewer_id', $user->id)
-            ->orWhereHas('reviews', fn (Builder $r) => $r->where('reviewer_id', $user->id)));
+            ->orWhere(fn (Builder $q) => $q->reviewedBy($user)));
+    }
+
+    /**
+     * Documents this account reviewed, on the original submission or on a revision.
+     */
+    public function scopeReviewedBy(Builder $query, User $user): void
+    {
+        $byUser = fn (Builder $r) => $r->where('reviewer_id', $user->id);
+
+        $query->where(fn (Builder $q) => $q
+            ->whereHas('originalReviews', $byUser)
+            ->orWhereHas('revisions.reviews', $byUser));
     }
 
     /**
@@ -180,14 +162,46 @@ class Document extends Model
         return $this->belongsTo(User::class, 'assigned_reviewer_id');
     }
 
+    /**
+     * Resubmissions only, numbered 1, 2, 3. The original submission is
+     * this row, so a document that was never resubmitted has none.
+     */
     public function revisions(): HasMany
     {
         return $this->hasMany(DocumentRevision::class);
     }
 
-    public function reviews(): HasMany
+    public function latestRevision(): ?DocumentRevision
+    {
+        return $this->revisions()->orderByDesc('revision_number')->first();
+    }
+
+    /**
+     * The submission under review: the latest revision once the document
+     * has been resubmitted, otherwise the original on this row.
+     */
+    public function latestSubmission(): Document|DocumentRevision
+    {
+        return $this->latestRevision() ?? $this;
+    }
+
+    /**
+     * Reviews of the original submission only.
+     */
+    public function originalReviews(): HasMany
     {
         return $this->hasMany(Review::class);
+    }
+
+    /**
+     * Every review of this document: of the original submission and of
+     * each revision. A review targets exactly one of them.
+     */
+    public function reviews(): Builder
+    {
+        return Review::query()->where(fn (Builder $q) => $q
+            ->where('document_id', $this->id)
+            ->orWhereIn('revision_id', DocumentRevision::select('id')->where('document_id', $this->id)));
     }
 
     public function notifications(): HasMany

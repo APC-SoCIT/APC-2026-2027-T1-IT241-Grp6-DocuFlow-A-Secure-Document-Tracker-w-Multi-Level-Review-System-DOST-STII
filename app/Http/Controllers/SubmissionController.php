@@ -8,7 +8,6 @@ use App\Services\WorkflowService;
 use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -97,13 +96,14 @@ class SubmissionController extends Controller
     public function editResubmission(Request $request, Document $document): Response
     {
         $this->authorizeResubmission($request, $document);
+        $latest = $document->latestSubmission();
 
         return Inertia::render('Documents/Resubmit', [
             'document' => [
                 'id' => $document->id,
                 'reference_number' => $document->reference_number,
-                'google_workspace_link' => $document->google_workspace_link,
-                'has_file' => $document->file_path !== null,
+                'google_workspace_link' => $latest->google_workspace_link,
+                'has_file' => $latest->file_path !== null,
             ],
             // Shown above the form so the changes can be made against them.
             'lastReturn' => $document->latestReturnSummary(),
@@ -132,23 +132,17 @@ class SubmissionController extends Controller
         }
 
         $usesLink = $validated['source_type'] === 'link';
-        $oldFilePath = $document->file_path;
-        $newFilePath = $usesLink ? null : $request->file('file')->store('documents');
 
+        // Earlier uploads stay: the original and each revision keep their own file.
         $this->workflow->resubmit(
             $document,
             $request->user(),
             $usesLink ? $validated['google_workspace_link'] : null,
-            $newFilePath,
+            $usesLink ? null : $request->file('file')->store('documents'),
             $validated['change_note'],
             $l1ReviewerId,
             $usesLink ? null : $request->file('file')->getClientOriginalName(),
         );
-
-        // The replaced upload is no longer referenced by anything.
-        if ($oldFilePath !== null && $oldFilePath !== $newFilePath) {
-            Storage::delete($oldFilePath);
-        }
 
         return redirect()->route('documents.show', $document)->with(
             'success',

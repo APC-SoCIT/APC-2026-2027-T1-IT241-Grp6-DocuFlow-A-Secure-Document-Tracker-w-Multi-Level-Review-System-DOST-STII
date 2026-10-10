@@ -90,7 +90,7 @@ class DocumentWorkflowTest extends TestCase
         $this->assertMatchesRegularExpression('/^MEMO-\d{4}-00001$/', $document->reference_number);
         $this->assertSame(Document::STATUS_PENDING_L1, $document->status);
         $this->assertSame($this->l1->id, $document->assigned_reviewer_id);
-        $this->assertSame(1, $document->revisions()->count());
+        $this->assertSame(0, $document->revisions()->count(), 'a new submission has no revisions');
         $this->assertTrue($this->l1->notifications()->where('document_id', $document->id)->exists());
 
         $this->act($this->l1, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->l2->id])
@@ -121,7 +121,7 @@ class DocumentWorkflowTest extends TestCase
             $reference = $document->reference_number;
             $dateSubmitted = $document->submitted_at;
             $this->assertNotNull($dateSubmitted);
-            $this->assertSame(0, $document->resubmission_count);
+            $this->assertSame(0, $document->revisions()->count());
 
             $this->travel(1)->days();
 
@@ -144,13 +144,86 @@ class DocumentWorkflowTest extends TestCase
             $this->assertSame(Document::STATUS_PENDING_L1, $document->status);
             $this->assertSame(1, $document->current_review_level);
             $this->assertSame($this->l1->id, $document->assigned_reviewer_id, "back to the same L1 after a level {$level} return");
-            $this->assertSame(2, (int) $document->revisions()->max('revision_number'));
-            $this->assertSame(1, $document->resubmission_count);
+            $this->assertSame([1], $document->revisions()->pluck('revision_number')->all());
             $this->assertTrue($dateSubmitted->equalTo($document->submitted_at), 'Date Submitted never changes on resubmission');
-            $this->assertTrue($document->revisions()->where('revision_number', 2)->value('created_at') > $dateSubmitted, 'the revision keeps its own resubmission date');
+            $this->assertTrue($document->revisions()->where('revision_number', 1)->value('created_at') > $dateSubmitted, 'the revision keeps its own resubmission date');
 
             $this->travelBack();
         }
+    }
+
+    /**
+     * ERD: the original lives on the document row; each resubmission makes
+     * one revision row (1, 2, ...) with its own link or file; a review is of
+     * the original or of the latest revision, never both.
+     */
+    public function test_revisions_come_only_from_resubmission_and_reviews_target_the_latest_submission(): void
+    {
+        $originalLink = 'https://docs.google.com/document/d/abc123/edit';
+        $document = $this->submit();
+        $this->assertSame(0, $document->revisions()->count(), 'a new submission has no revisions');
+
+        // Returned: the review is of the original submission.
+        $this->act($this->l1, $document, ['action' => 'return', 'remarks' => 'Add the budget table.']);
+        $review = $document->reviews()->latest('id')->firstOrFail();
+        $this->assertSame($document->id, $review->document_id);
+        $this->assertNull($review->revision_id);
+
+        // Resubmitted: revision 1 with its own link. The original stays.
+        $this->actingAs($this->source)->post(route('documents.resubmit', $document), [
+            'source_type' => 'link',
+            'google_workspace_link' => 'https://docs.google.com/document/d/abc123v2/edit',
+            'change_note' => 'Added the budget table.',
+        ])->assertSessionHasNoErrors();
+
+        $revision1 = $document->revisions()->sole();
+        $this->assertSame(1, $revision1->revision_number);
+        $this->assertSame('Added the budget table.', $revision1->change_note);
+        $this->assertSame('https://docs.google.com/document/d/abc123v2/edit', $revision1->google_workspace_link);
+        $this->assertSame($originalLink, $document->fresh()->google_workspace_link, 'the original submission never changes');
+
+        // Returned again: the review is of revision 1.
+        $this->act($this->l1, $document, ['action' => 'return', 'remarks' => 'Totals are wrong.']);
+        $review = $document->reviews()->latest('id')->firstOrFail();
+        $this->assertNull($review->document_id);
+        $this->assertSame($revision1->id, $review->revision_id);
+
+        // Resubmitted with a file: revision 2, and the next review is of revision 2.
+        $this->actingAs($this->source)->post(route('documents.resubmit', $document), [
+            'source_type' => 'file',
+            'file' => UploadedFile::fake()->create('Budget v3.pdf', 100, 'application/pdf'),
+            'change_note' => 'Fixed the totals.',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame([1, 2], $document->revisions()->orderBy('revision_number')->pluck('revision_number')->all());
+        $revision2 = $document->revisions()->where('revision_number', 2)->firstOrFail();
+        $this->assertSame('Budget v3.pdf', $revision2->file_name);
+        Storage::assertExists($revision2->file_path);
+        $this->assertSame('https://docs.google.com/document/d/abc123v2/edit', $revision1->fresh()->google_workspace_link, 'earlier revisions never change');
+
+        $this->act($this->l1, $document, ['action' => 'forward', 'l2_reviewer_id' => $this->l2->id]);
+        $review = $document->reviews()->latest('id')->firstOrFail();
+        $this->assertNull($review->document_id);
+        $this->assertSame($revision2->id, $review->revision_id);
+
+        // A reviewer whose only review is of a revision can still find and open it.
+        $this->act($this->l2, $document, ['action' => 'return', 'remarks' => 'Needs a signature.']);
+        $this->actingAs($this->l2)->get(route('documents.index', ['role' => 'assigned']))
+            ->assertInertia(fn ($page) => $page->has('documents', 1)->where('documents.0.id', $document->id));
+
+        // Every review is still found through the document; the page shows the latest submission.
+        $this->assertSame(4, $document->reviews()->count());
+        $this->assertSame(1, $document->originalReviews()->count());
+        $this->actingAs($this->l2)->get(route('documents.show', $document))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('document.revision_count', 2)
+                ->where('preview.file_name', 'Budget v3.pdf')
+                ->where('lastReturn.remarks', 'Needs a signature.')
+                ->where('reviews.0.revision_number', null)
+                ->where('reviews.1.revision_number', 1)
+                ->where('reviews.2.revision_number', 2)
+                ->where('reviews.3.revision_number', 2));
     }
 
     public function test_return_requires_remarks(): void
@@ -295,7 +368,7 @@ class DocumentWorkflowTest extends TestCase
             'change_note' => 'x',
         ])->assertSessionHas('error', "{$document->reference_number} can only be resubmitted after it is returned. Its status is Pending Level 1 Review.");
 
-        $this->assertSame(1, $document->revisions()->count());
+        $this->assertSame(0, $document->revisions()->count());
     }
 
     public function test_resubmission_requires_a_change_note(): void
