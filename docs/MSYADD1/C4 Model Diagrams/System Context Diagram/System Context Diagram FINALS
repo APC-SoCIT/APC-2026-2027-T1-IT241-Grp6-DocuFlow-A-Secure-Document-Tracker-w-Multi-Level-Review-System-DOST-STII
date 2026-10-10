@@ -48,6 +48,4 @@ Rel(superAdmin, docuflow, "Manage Documents\nManage System Administration\nView 
 
 Rel(docuflow, aiAssistant, "Detect Duplicate Submission\nProvide AI Feedback & Suggestions")
 
-Rel(docuflow, emailSystem, "Send Notification")
-
 @enduml
