@@ -1,0 +1,1081 @@
+-- =====================================================================
+-- DocuFlow Database Schema  (v4)
+-- Engine: InnoDB | Charset: utf8mb4 | Requires MySQL 8.0.16+
+-- =====================================================================
+-- This script REBUILDS the database from scratch. It drops any existing
+-- `docuflow` schema first, so only run it while there is no real data.
+--
+-- STRUCTURE:
+--   SECTION A: Lookup / reference tables
+--   SECTION B: Core entity tables
+--   SECTION C: Relationship / history tables
+--   SECTION D: Triggers (business-rule enforcement)
+--   SECTION E: View (derived "current reviewer")
+--   SECTION F: Seed data
+--
+-- NOTES
+--   1. Things only the application can guarantee (do each one inside a
+--      single transaction):
+--        - Rule 1: a Super Admin / Level 3 Reviewer must always exist
+--          (the database only guarantees "at most one").
+--        - Rule 6: a new document must get its first Level 1 assignment
+--          in the same transaction that inserts it.
+--        - Resubmission: insert the revision FIRST (the document is still
+--          "Returned to Source"), then assign the Level 1 reviewer, then
+--          move the document to "Pending Level 1 Review".
+--        - Status changes: release the active assignment (set
+--          released_at) and/or insert the next assignment BEFORE updating
+--          document_status_id.
+--        - Disabling an account, removing eligibility or removing a
+--          reviewer role: first return (release) the documents that
+--          reviewer currently holds, then make the change.
+--        - Division Chief handover: release the old Division Chief's
+--          assignments, delete the old Level 3 Reviewer user_role row,
+--          insert the new one, then assign the pending documents.
+--   2. Give the application's database account only INSERT and SELECT on
+--      audit_log and review. Triggers cannot stop TRUNCATE or DROP.
+--   3. Role IDs 4 (Level 3 Reviewer) and 5 (Super Admin) are fixed by the
+--      seed data in Section F; user_role.singleton_role_id depends on them.
+--   4. MySQL Workbench: File > Import > Reverse Engineer MySQL Create
+--      Script models Sections A-C. To also get triggers and the view,
+--      run this script on a server and use Database > Reverse Engineer.
+-- =====================================================================
+
+DROP DATABASE IF EXISTS docuflow;
+
+CREATE DATABASE docuflow
+    CHARACTER SET utf8mb4
+    COLLATE utf8mb4_unicode_ci;
+
+USE docuflow;
+
+
+-- =====================================================================
+-- SECTION A: LOOKUP / REFERENCE TABLES
+-- =====================================================================
+
+CREATE TABLE role (
+    role_id      BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    role_name    VARCHAR(50)  NOT NULL UNIQUE,
+    created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+                 ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE document_type (
+    document_type_id   BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    type_code          VARCHAR(20)  NOT NULL UNIQUE,
+    type_name          VARCHAR(100) NOT NULL,
+    created_at         TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at         TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+                       ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE document_status (
+    document_status_id   BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    status_name          VARCHAR(50) NOT NULL UNIQUE,
+    created_at           TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at           TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
+                         ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE review_level (
+    review_level_id   BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    level_name        VARCHAR(20) NOT NULL UNIQUE,   -- 'Level 1' / 'Level 2' / 'Level 3'
+    created_at        TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
+                      ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE review_action (
+    review_action_id   BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    action_name        VARCHAR(20) NOT NULL UNIQUE,   -- Return / Forward / Endorse / Approve
+    created_at         TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at         TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
+                       ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE notification_channel (
+    notification_channel_id   BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    channel_name              VARCHAR(20) NOT NULL UNIQUE,   -- in_system / email
+    created_at                TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at                TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
+                              ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE notification_delivery_status (
+    notification_delivery_status_id   BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    delivery_status_name              VARCHAR(20) NOT NULL UNIQUE,   -- sent / failed
+    created_at                        TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at                        TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
+                                      ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+
+-- =====================================================================
+-- SECTION B: CORE ENTITY TABLES
+-- =====================================================================
+
+CREATE TABLE user (
+    user_id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    full_name       VARCHAR(150) NOT NULL,
+    email           VARCHAR(150) NOT NULL UNIQUE,
+    password_hash   VARCHAR(255) NOT NULL,
+    is_active       BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- Rules 2 and 5: every document has exactly one original submitter and
+-- exactly one document type. The original submission lives on this row;
+-- later submissions are rows in `revision`.
+CREATE TABLE document (
+    document_id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    reference_number     VARCHAR(30)  NOT NULL UNIQUE,     -- DOCTYPE-YYYY-NNNNN
+    document_type_id     BIGINT UNSIGNED NOT NULL,
+    document_status_id   BIGINT UNSIGNED NOT NULL,
+    submitted_by         BIGINT UNSIGNED NOT NULL,
+    file_path            VARCHAR(500) NULL,
+    google_workspace_link VARCHAR(500) NULL,
+    submitted_at         TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at           TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at           TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+                         ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_document_type
+        FOREIGN KEY (document_type_id)   REFERENCES document_type(document_type_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT fk_document_status
+        FOREIGN KEY (document_status_id) REFERENCES document_status(document_status_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT fk_document_submitted_by
+        FOREIGN KEY (submitted_by)       REFERENCES user(user_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+
+    CONSTRAINT chk_document_exactly_one_source CHECK (
+        (file_path IS NOT NULL AND google_workspace_link IS NULL)
+        OR
+        (file_path IS NULL AND google_workspace_link IS NOT NULL)
+    )
+) ENGINE=InnoDB;
+
+
+-- =====================================================================
+-- SECTION C: RELATIONSHIP / HISTORY TABLES
+-- =====================================================================
+
+-- Rule 1: USER <-> ROLE (many-to-many). Super Admin and Level 3
+-- Reviewer: at most one holder. singleton_role_id is filled only for
+-- those two roles (IDs 4 and 5, see Note 4), and its UNIQUE key blocks a
+-- second holder even when two transactions run at the same time.
+CREATE TABLE user_role (
+    user_id      BIGINT UNSIGNED NOT NULL,
+    role_id      BIGINT UNSIGNED NOT NULL,
+    singleton_role_id BIGINT UNSIGNED GENERATED ALWAYS AS (
+                     CASE WHEN role_id IN (4, 5) THEN role_id END
+                 ) STORED,
+    created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                 ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (user_id, role_id),
+    UNIQUE KEY uq_one_holder_per_singleton_role (singleton_role_id),
+    CONSTRAINT fk_user_role_user
+        FOREIGN KEY (user_id) REFERENCES user(user_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT fk_user_role_role
+        FOREIGN KEY (role_id) REFERENCES role(role_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE=InnoDB;
+
+-- Rules 3 and 4: DOCUMENT -> zero or many REVISIONs, created only when a
+-- returned document is resubmitted by its original submitter.
+CREATE TABLE revision (
+    revision_id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    document_id           BIGINT UNSIGNED NOT NULL,
+    revision_number       INT UNSIGNED    NOT NULL,    -- 1, 2, 3... per document
+    submitted_by          BIGINT UNSIGNED NOT NULL,
+    file_path             VARCHAR(500) NULL,
+    google_workspace_link VARCHAR(500) NULL,
+    change_note           TEXT NULL,
+    submitted_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                          ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_revision_document
+        FOREIGN KEY (document_id)  REFERENCES document(document_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT fk_revision_submitted_by
+        FOREIGN KEY (submitted_by) REFERENCES user(user_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+
+    UNIQUE KEY uq_document_revision_number (document_id, revision_number),
+
+    CONSTRAINT chk_revision_exactly_one_source CHECK (
+        (file_path IS NOT NULL AND google_workspace_link IS NULL)
+        OR
+        (file_path IS NULL AND google_workspace_link IS NOT NULL)
+    )
+) ENGINE=InnoDB;
+
+-- Rule 9: Level 1 / Level 2 reviewer -> zero or many REVIEWER
+-- ELIGIBILITY records (at most one per level per user).
+CREATE TABLE reviewer_eligibility (
+    reviewer_eligibility_id   BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id                   BIGINT UNSIGNED NOT NULL,
+    review_level_id           BIGINT UNSIGNED NOT NULL,
+    is_eligible               BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at                TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at                TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                              ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_eligibility_user
+        FOREIGN KEY (user_id)         REFERENCES user(user_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT fk_eligibility_level
+        FOREIGN KEY (review_level_id) REFERENCES review_level(review_level_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+
+    UNIQUE KEY uq_user_level (user_id, review_level_id)
+) ENGINE=InnoDB;
+
+-- Rules 6, 7, 8: "current reviewer" is the assignment whose released_at
+-- is NULL. The generated column + UNIQUE key allow at most one active
+-- assignment per document.
+CREATE TABLE document_assignment (
+    document_assignment_id   BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    document_id              BIGINT UNSIGNED NOT NULL,
+    reviewer_id              BIGINT UNSIGNED NOT NULL,
+    review_level_id          BIGINT UNSIGNED NOT NULL,
+    assigned_at              TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    released_at              TIMESTAMP NULL DEFAULT NULL,
+
+    active_document_id       BIGINT UNSIGNED GENERATED ALWAYS AS (
+                                 CASE WHEN released_at IS NULL THEN document_id END
+                             ) STORED,
+
+    created_at               TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at               TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                             ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_assignment_document
+        FOREIGN KEY (document_id)     REFERENCES document(document_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT fk_assignment_reviewer
+        FOREIGN KEY (reviewer_id)     REFERENCES user(user_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT fk_assignment_level
+        FOREIGN KEY (review_level_id) REFERENCES review_level(review_level_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+
+    UNIQUE KEY uq_one_active_assignment_per_document (active_document_id)
+) ENGINE=InnoDB;
+
+-- Rules 10 and 11: a REVIEW evaluates exactly one target: the original
+-- submission (document_id) or one revision (revision_id). Reviews are
+-- permanent: triggers block every UPDATE and DELETE.
+CREATE TABLE review (
+    review_id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    document_id        BIGINT UNSIGNED NULL,   -- set only when reviewing the ORIGINAL submission
+    revision_id        BIGINT UNSIGNED NULL,   -- set only when reviewing a REVISION
+    reviewer_id        BIGINT UNSIGNED NOT NULL,
+    review_level_id    BIGINT UNSIGNED NOT NULL,
+    review_action_id   BIGINT UNSIGNED NOT NULL,
+    official_remarks   TEXT NOT NULL,
+    tat_days           INT UNSIGNED NULL,
+    reviewed_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                       ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_review_document
+        FOREIGN KEY (document_id)      REFERENCES document(document_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT fk_review_revision
+        FOREIGN KEY (revision_id)      REFERENCES revision(revision_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT fk_review_reviewer
+        FOREIGN KEY (reviewer_id)      REFERENCES user(user_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT fk_review_level
+        FOREIGN KEY (review_level_id)  REFERENCES review_level(review_level_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT fk_review_action
+        FOREIGN KEY (review_action_id) REFERENCES review_action(review_action_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+
+    UNIQUE KEY uq_document_level (document_id, review_level_id),
+    UNIQUE KEY uq_revision_level (revision_id, review_level_id),
+
+    CONSTRAINT chk_remarks_not_blank CHECK (TRIM(official_remarks) <> ''),
+
+    CONSTRAINT chk_review_exactly_one_target CHECK (
+        (document_id IS NOT NULL AND revision_id IS NULL)
+        OR
+        (document_id IS NULL AND revision_id IS NOT NULL)
+    )
+) ENGINE=InnoDB;
+
+-- Rules 12 and 13: a NOTIFICATION is triggered by zero or one DOCUMENT
+-- (zero for an administrative notice such as a new Division Chief
+-- designation) and is received by exactly one recipient.
+CREATE TABLE notification (
+    notification_id                  BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    document_id                      BIGINT UNSIGNED NULL,
+    recipient_id                     BIGINT UNSIGNED NOT NULL,
+    notification_channel_id          BIGINT UNSIGNED NOT NULL,
+    notification_delivery_status_id  BIGINT UNSIGNED NOT NULL,
+    message                          VARCHAR(500) NOT NULL,
+    created_at                       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at                       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                                     ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_notification_document
+        FOREIGN KEY (document_id)       REFERENCES document(document_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT fk_notification_recipient
+        FOREIGN KEY (recipient_id)      REFERENCES user(user_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT fk_notification_channel
+        FOREIGN KEY (notification_channel_id) REFERENCES notification_channel(notification_channel_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT fk_notification_delivery_status
+        FOREIGN KEY (notification_delivery_status_id) REFERENCES notification_delivery_status(notification_delivery_status_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE=InnoDB;
+
+-- Rules 14 and 15: every AUDIT LOG entry is generated by exactly one
+-- USER and is associated with zero or one DOCUMENT.
+CREATE TABLE audit_log (
+    audit_log_id   BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id        BIGINT UNSIGNED NOT NULL,
+    document_id    BIGINT UNSIGNED NULL,
+    action_name    VARCHAR(100) NOT NULL,
+    details        TEXT NULL,
+    created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                   ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_audit_log_user
+        FOREIGN KEY (user_id)     REFERENCES user(user_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT fk_audit_log_document
+        FOREIGN KEY (document_id) REFERENCES document(document_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+
+    INDEX idx_audit_log_created_at (created_at)
+) ENGINE=InnoDB;
+
+-- Standalone: holiday calendar used by TAT calculation.
+CREATE TABLE holiday (
+    holiday_id     BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    holiday_date   DATE NOT NULL UNIQUE,
+    holiday_name   VARCHAR(100) NOT NULL,
+    created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                   ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+
+-- =====================================================================
+-- SECTION D: TRIGGERS: business-rule enforcement
+-- =====================================================================
+
+DELIMITER $$
+
+-- ---------------------------------------------------------------------
+-- Rule 1: Super Admin and Level 3 Reviewer: at most one holder.
+-- This trigger gives a clear message; the UNIQUE key
+-- uq_one_holder_per_singleton_role is what blocks simultaneous inserts.
+-- ---------------------------------------------------------------------
+CREATE TRIGGER trg_user_role_singleton_check
+BEFORE INSERT ON user_role
+FOR EACH ROW
+BEGIN
+    DECLARE v_role_name VARCHAR(50);
+    DECLARE v_existing_count INT DEFAULT 0;
+
+    SET v_role_name = (SELECT role_name FROM role WHERE role_id = NEW.role_id);
+
+    IF v_role_name IN ('Super Admin', 'Level 3 Reviewer') THEN
+        SELECT COUNT(*) INTO v_existing_count
+        FROM user_role WHERE role_id = NEW.role_id;
+
+        IF v_existing_count > 0 THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'This role can only be held by one user at a time.';
+        END IF;
+    END IF;
+END$$
+
+CREATE TRIGGER trg_user_role_no_update
+BEFORE UPDATE ON user_role
+FOR EACH ROW
+BEGIN
+    IF NEW.user_id <> OLD.user_id OR NEW.role_id <> OLD.role_id THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Delete and re-insert the role assignment instead of editing it.';
+    END IF;
+END$$
+
+-- Rule 6: a reviewer role cannot be removed while that reviewer is still
+-- the current reviewer of a document at that level.
+CREATE TRIGGER trg_user_role_removal_check
+BEFORE DELETE ON user_role
+FOR EACH ROW
+BEGIN
+    DECLARE v_active INT DEFAULT 0;
+
+    SELECT COUNT(*) INTO v_active
+    FROM document_assignment da
+    JOIN review_level rl ON rl.review_level_id = da.review_level_id
+    JOIN role r          ON r.role_name = CONCAT(rl.level_name, ' Reviewer')
+    WHERE r.role_id = OLD.role_id
+      AND da.reviewer_id = OLD.user_id
+      AND da.released_at IS NULL;
+
+    IF v_active > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Return or hand over the documents this reviewer currently holds at this level before removing the role.';
+    END IF;
+END$$
+
+-- Rule 6: an account cannot be disabled while it is the current reviewer
+-- of a document.
+CREATE TRIGGER trg_user_deactivation_check
+BEFORE UPDATE ON user
+FOR EACH ROW
+BEGIN
+    DECLARE v_active INT DEFAULT 0;
+
+    IF OLD.is_active = TRUE AND NEW.is_active = FALSE THEN
+        SELECT COUNT(*) INTO v_active
+        FROM document_assignment
+        WHERE reviewer_id = OLD.user_id AND released_at IS NULL;
+
+        IF v_active > 0 THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Return the documents this reviewer currently holds before disabling the account.';
+        END IF;
+    END IF;
+END$$
+
+-- ---------------------------------------------------------------------
+-- Rule 2: the submitter must hold Document Source, Level 1 Reviewer or
+-- Level 2 Reviewer.
+-- ---------------------------------------------------------------------
+CREATE TRIGGER trg_document_submitter_role_check
+BEFORE INSERT ON document
+FOR EACH ROW
+BEGIN
+    DECLARE v_count INT DEFAULT 0;
+
+    SELECT COUNT(*) INTO v_count
+    FROM user_role ur
+    JOIN role r ON r.role_id = ur.role_id
+    WHERE ur.user_id = NEW.submitted_by
+      AND r.role_name IN ('Document Source', 'Level 1 Reviewer', 'Level 2 Reviewer');
+
+    IF v_count = 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Only a Document Source, Level 1 Reviewer, or Level 2 Reviewer can submit a document.';
+    END IF;
+END$$
+
+-- Every new submission starts at Level 1 (V4 Submit/Resubmit Document).
+CREATE TRIGGER trg_document_initial_status
+BEFORE INSERT ON document
+FOR EACH ROW
+BEGIN
+    DECLARE v_status VARCHAR(50);
+
+    SET v_status = (SELECT status_name FROM document_status
+                    WHERE document_status_id = NEW.document_status_id);
+
+    IF NOT (v_status <=> 'Pending Level 1 Review') THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'A new document must start with the status Pending Level 1 Review.';
+    END IF;
+END$$
+
+-- Rules 2, 4, 5: the original submission is history. Only the status and
+-- submitted as a REVISION.
+CREATE TRIGGER trg_document_locked
+BEFORE UPDATE ON document
+FOR EACH ROW
+BEGIN
+    IF NEW.reference_number <> OLD.reference_number
+       OR NEW.document_type_id <> OLD.document_type_id
+       OR NEW.submitted_by <> OLD.submitted_by
+       OR NOT (NEW.file_path <=> OLD.file_path)
+       OR NOT (NEW.google_workspace_link <=> OLD.google_workspace_link)
+       OR NEW.submitted_at <> OLD.submitted_at THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Only the status. Resubmit to change the file or link.';
+    END IF;
+END$$
+
+-- ---------------------------------------------------------------------
+-- Rules 6 and 8: status changes follow the review sequence, and the
+-- status always matches the active assignment.
+--   Allowed moves: Pending L1 -> Pending L2 or Returned
+--                  Pending L2 -> Pending L3 or Returned
+--                  Pending L3 -> Approved - Complete or Returned
+--                  Returned   -> Pending L1 (resubmission)
+--   Pending Level N Review -> an active assignment at Level N exists.
+--   Returned / Approved    -> no active assignment remains.
+-- ---------------------------------------------------------------------
+CREATE TRIGGER trg_document_status_matches_assignment
+BEFORE UPDATE ON document
+FOR EACH ROW
+BEGIN
+    DECLARE v_old_status VARCHAR(50);
+    DECLARE v_status     VARCHAR(50);
+    DECLARE v_level      VARCHAR(20);
+    DECLARE v_active     INT DEFAULT 0;
+
+    IF NEW.document_status_id <> OLD.document_status_id THEN
+        SET v_old_status = (SELECT status_name FROM document_status
+                            WHERE document_status_id = OLD.document_status_id);
+        SET v_status     = (SELECT status_name FROM document_status
+                            WHERE document_status_id = NEW.document_status_id);
+
+        IF NOT (
+               (v_old_status = 'Pending Level 1 Review' AND v_status IN ('Pending Level 2 Review', 'Returned to Source'))
+            OR (v_old_status = 'Pending Level 2 Review' AND v_status IN ('Pending Level 3 Review', 'Returned to Source'))
+            OR (v_old_status = 'Pending Level 3 Review' AND v_status IN ('Approved - Complete',    'Returned to Source'))
+            OR (v_old_status = 'Returned to Source'     AND v_status =  'Pending Level 1 Review')
+        ) THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'This status change skips or reverses the review sequence.';
+        END IF;
+
+        IF v_status LIKE 'Pending Level % Review' THEN
+            SET v_level = SUBSTRING(v_status, 9, 7);   -- 'Level 1' / 'Level 2' / 'Level 3'
+
+            SELECT COUNT(*) INTO v_active
+            FROM document_assignment da
+            JOIN review_level rl ON rl.review_level_id = da.review_level_id
+            WHERE da.document_id = NEW.document_id
+              AND da.released_at IS NULL
+              AND rl.level_name = v_level;
+
+            IF v_active = 0 THEN
+                SIGNAL SQLSTATE '45000'
+                SET MESSAGE_TEXT = 'A document under review needs an active assignment at that level.';
+            END IF;
+        ELSE
+            SELECT COUNT(*) INTO v_active
+            FROM document_assignment
+            WHERE document_id = NEW.document_id AND released_at IS NULL;
+
+            IF v_active > 0 THEN
+                SIGNAL SQLSTATE '45000'
+                SET MESSAGE_TEXT = 'Release the active assignment before returning or approving the document.';
+            END IF;
+        END IF;
+    END IF;
+END$$
+
+-- ---------------------------------------------------------------------
+-- Rule 4: only the original submitter can resubmit, and only a document
+-- that is "Returned to Source".
+-- ---------------------------------------------------------------------
+CREATE TRIGGER trg_revision_same_submitter
+BEFORE INSERT ON revision
+FOR EACH ROW
+BEGIN
+    DECLARE v_submitter BIGINT UNSIGNED;
+    DECLARE v_status    VARCHAR(50);
+
+    SELECT d.submitted_by, s.status_name INTO v_submitter, v_status
+    FROM document d
+    JOIN document_status s ON s.document_status_id = d.document_status_id
+    WHERE d.document_id = NEW.document_id;
+
+    IF v_submitter <> NEW.submitted_by THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'A document can only be resubmitted by the user who originally submitted it.';
+    END IF;
+
+    IF v_status <> 'Returned to Source' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Only a returned document can be resubmitted.';
+    END IF;
+END$$
+
+-- Rules 3 and 4: a revision is a permanent record of a resubmission.
+CREATE TRIGGER trg_revision_locked
+BEFORE UPDATE ON revision
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'Revision records cannot be modified. Submit a new revision instead.';
+END$$
+
+CREATE TRIGGER trg_revision_no_delete
+BEFORE DELETE ON revision
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'Revision records cannot be deleted.';
+END$$
+
+-- ---------------------------------------------------------------------
+-- Rule 6: the assigned reviewer must hold the role for the level, be
+-- active, and (Level 1 and 2) be eligible at that level.
+-- ---------------------------------------------------------------------
+CREATE TRIGGER trg_assignment_reviewer_role_check
+BEFORE INSERT ON document_assignment
+FOR EACH ROW
+BEGIN
+    DECLARE v_level_name VARCHAR(20);
+    DECLARE v_count      INT DEFAULT 0;
+    DECLARE v_active     BOOLEAN;
+
+    SELECT level_name INTO v_level_name
+    FROM review_level WHERE review_level_id = NEW.review_level_id;
+
+    SELECT COUNT(*) INTO v_count
+    FROM user_role ur
+    JOIN role r ON r.role_id = ur.role_id
+    WHERE ur.user_id = NEW.reviewer_id
+      AND r.role_name = CONCAT(v_level_name, ' Reviewer');
+
+    IF v_count = 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'The assigned reviewer does not hold the role matching this review level.';
+    END IF;
+
+    SELECT is_active INTO v_active FROM user WHERE user_id = NEW.reviewer_id;
+
+    IF v_active = FALSE THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'The assigned reviewer account is not active.';
+    END IF;
+
+    IF v_level_name IN ('Level 1', 'Level 2') THEN
+        SELECT COUNT(*) INTO v_count
+        FROM reviewer_eligibility
+        WHERE user_id = NEW.reviewer_id
+          AND review_level_id = NEW.review_level_id
+          AND is_eligible = TRUE;
+
+        IF v_count = 0 THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'The assigned reviewer is not eligible at this level.';
+        END IF;
+    END IF;
+END$$
+
+-- ---------------------------------------------------------------------
+-- Rule 7: the document's original submitter cannot be its reviewer.
+-- ---------------------------------------------------------------------
+CREATE TRIGGER trg_assignment_no_self_review
+BEFORE INSERT ON document_assignment
+FOR EACH ROW
+BEGIN
+    DECLARE v_submitted_by BIGINT UNSIGNED;
+
+    SELECT submitted_by INTO v_submitted_by
+    FROM document WHERE document_id = NEW.document_id;
+
+    IF v_submitted_by = NEW.reviewer_id THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'A user cannot be assigned as the reviewer of a document they submitted.';
+    END IF;
+END$$
+
+-- ---------------------------------------------------------------------
+-- Rule 8: a new Level 1 assignment must keep the previous Level 1
+-- reviewer unless that reviewer is no longer available. "Available"
+-- means: account active, still holds the Level 1 Reviewer role, and
+-- still eligible at Level 1. "Previous" = the most recent earlier Level 1
+-- assignment (by id, so two assignments in the same second cannot be
+-- mixed up).
+-- ---------------------------------------------------------------------
+CREATE TRIGGER trg_assignment_level1_retention
+BEFORE INSERT ON document_assignment
+FOR EACH ROW
+BEGIN
+    DECLARE v_level_name         VARCHAR(20);
+    DECLARE v_previous_reviewer  BIGINT UNSIGNED DEFAULT NULL;
+    DECLARE v_previous_available INT DEFAULT 0;
+
+    SET v_level_name = (SELECT level_name FROM review_level
+                        WHERE review_level_id = NEW.review_level_id);
+
+    IF v_level_name = 'Level 1' THEN
+        SET v_previous_reviewer = (
+            SELECT da.reviewer_id
+            FROM document_assignment da
+            WHERE da.document_id = NEW.document_id
+              AND da.review_level_id = NEW.review_level_id
+            ORDER BY da.document_assignment_id DESC
+            LIMIT 1);
+
+        IF v_previous_reviewer IS NOT NULL AND v_previous_reviewer <> NEW.reviewer_id THEN
+            SELECT COUNT(*) INTO v_previous_available
+            FROM user u
+            JOIN user_role ur ON ur.user_id = u.user_id
+            JOIN role r       ON r.role_id = ur.role_id
+                             AND r.role_name = 'Level 1 Reviewer'
+            JOIN reviewer_eligibility re
+                              ON re.user_id = u.user_id
+                             AND re.review_level_id = NEW.review_level_id
+                             AND re.is_eligible = TRUE
+            WHERE u.user_id = v_previous_reviewer
+              AND u.is_active = TRUE;
+
+            IF v_previous_available > 0 THEN
+                SIGNAL SQLSTATE '45000'
+                SET MESSAGE_TEXT = 'A resubmitted document must be reassigned to the same Level 1 Reviewer unless that reviewer is no longer active or eligible.';
+            END IF;
+        END IF;
+    END IF;
+END$$
+
+-- Rules 6 and 8: assignment rows are history. Only released_at can be
+-- set, once; a released assignment cannot be reopened or changed.
+CREATE TRIGGER trg_assignment_locked
+BEFORE UPDATE ON document_assignment
+FOR EACH ROW
+BEGIN
+    IF NEW.document_id <> OLD.document_id
+       OR NEW.reviewer_id <> OLD.reviewer_id
+       OR NEW.review_level_id <> OLD.review_level_id
+       OR NEW.assigned_at <> OLD.assigned_at THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Only released_at can change on an assignment.';
+    END IF;
+
+    IF OLD.released_at IS NOT NULL AND NOT (NEW.released_at <=> OLD.released_at) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'A released assignment cannot be reopened or changed.';
+    END IF;
+END$$
+
+CREATE TRIGGER trg_assignment_no_delete
+BEFORE DELETE ON document_assignment
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'Assignment records cannot be deleted.';
+END$$
+
+-- ---------------------------------------------------------------------
+-- Rule 9: eligibility applies to Level 1 / Level 2 reviewers only.
+-- ---------------------------------------------------------------------
+CREATE TRIGGER trg_eligibility_role_check
+BEFORE INSERT ON reviewer_eligibility
+FOR EACH ROW
+BEGIN
+    DECLARE v_level_name VARCHAR(20);
+    DECLARE v_count      INT DEFAULT 0;
+
+    SELECT level_name INTO v_level_name
+    FROM review_level WHERE review_level_id = NEW.review_level_id;
+
+    IF v_level_name NOT IN ('Level 1', 'Level 2') THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Reviewer eligibility only applies to Level 1 or Level 2.';
+    END IF;
+
+    SELECT COUNT(*) INTO v_count
+    FROM user_role ur
+    JOIN role r ON r.role_id = ur.role_id
+    WHERE ur.user_id = NEW.user_id
+      AND r.role_name = CONCAT(v_level_name, ' Reviewer');
+
+    IF v_count = 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'This user does not hold the role matching the eligibility level.';
+    END IF;
+END$$
+
+-- Rules 6 and 9: eligibility cannot be switched off while the reviewer is
+-- still the current reviewer of a document at that level.
+CREATE TRIGGER trg_eligibility_locked
+BEFORE UPDATE ON reviewer_eligibility
+FOR EACH ROW
+BEGIN
+    DECLARE v_active INT DEFAULT 0;
+
+    IF NEW.user_id <> OLD.user_id OR NEW.review_level_id <> OLD.review_level_id THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Only is_eligible can change on an eligibility record.';
+    END IF;
+
+    IF OLD.is_eligible = TRUE AND NEW.is_eligible = FALSE THEN
+        SELECT COUNT(*) INTO v_active
+        FROM document_assignment
+        WHERE reviewer_id = OLD.user_id
+          AND review_level_id = OLD.review_level_id
+          AND released_at IS NULL;
+
+        IF v_active > 0 THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Return the documents this reviewer currently holds at this level before removing eligibility.';
+        END IF;
+    END IF;
+END$$
+
+-- ---------------------------------------------------------------------
+-- Rules 6, 9, 11 (and V4 Review Document): only the document's current
+-- reviewer at that level can record a review, the reviewer must still
+-- be active and (Level 1 and 2) eligible, the status must match the
+-- level, the review must evaluate the latest submission, and the action
+-- must be one allowed at that level.
+-- ---------------------------------------------------------------------
+CREATE TRIGGER trg_review_reviewer_check
+BEFORE INSERT ON review
+FOR EACH ROW
+BEGIN
+    DECLARE v_level_name      VARCHAR(20);
+    DECLARE v_action_name     VARCHAR(20);
+    DECLARE v_document_id     BIGINT UNSIGNED;
+    DECLARE v_status          VARCHAR(50);
+    DECLARE v_latest_revision BIGINT UNSIGNED;
+    DECLARE v_count           INT DEFAULT 0;
+
+    SET v_level_name  = (SELECT level_name FROM review_level
+                         WHERE review_level_id = NEW.review_level_id);
+    SET v_action_name = (SELECT action_name FROM review_action
+                         WHERE review_action_id = NEW.review_action_id);
+
+    -- Role for the level
+    SELECT COUNT(*) INTO v_count
+    FROM user_role ur
+    JOIN role r ON r.role_id = ur.role_id
+    WHERE ur.user_id = NEW.reviewer_id
+      AND r.role_name = CONCAT(v_level_name, ' Reviewer');
+
+    IF v_count = 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'The reviewer does not hold the role matching this review level.';
+    END IF;
+
+    -- Active account, and eligible at Level 1 / Level 2
+    SELECT COUNT(*) INTO v_count
+    FROM user WHERE user_id = NEW.reviewer_id AND is_active = TRUE;
+
+    IF v_count = 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'The reviewer account is not active.';
+    END IF;
+
+    IF v_level_name IN ('Level 1', 'Level 2') THEN
+        SELECT COUNT(*) INTO v_count
+        FROM reviewer_eligibility
+        WHERE user_id = NEW.reviewer_id
+          AND review_level_id = NEW.review_level_id
+          AND is_eligible = TRUE;
+
+        IF v_count = 0 THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'The reviewer is not eligible at this review level.';
+        END IF;
+    END IF;
+
+    -- The document being reviewed
+    IF NEW.document_id IS NOT NULL THEN
+        SET v_document_id = NEW.document_id;
+    ELSE
+        SET v_document_id = (SELECT document_id FROM revision
+                             WHERE revision_id = NEW.revision_id);
+    END IF;
+
+    -- The reviewer is the document's current reviewer at this level
+    SELECT COUNT(*) INTO v_count
+    FROM document_assignment
+    WHERE document_id = v_document_id
+      AND reviewer_id = NEW.reviewer_id
+      AND review_level_id = NEW.review_level_id
+      AND released_at IS NULL;
+
+    IF v_count = 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Only the current reviewer assigned at this level can review the document.';
+    END IF;
+
+    -- The status matches the level
+    SET v_status = (SELECT s.status_name
+                    FROM document d
+                    JOIN document_status s ON s.document_status_id = d.document_status_id
+                    WHERE d.document_id = v_document_id);
+
+    IF NOT (v_status <=> CONCAT('Pending ', v_level_name, ' Review')) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'The document status does not match this review level.';
+    END IF;
+
+    -- The review evaluates the latest submission
+    SET v_latest_revision = (SELECT revision_id FROM revision
+                             WHERE document_id = v_document_id
+                             ORDER BY revision_number DESC
+                             LIMIT 1);
+
+    IF (NEW.revision_id IS NULL AND v_latest_revision IS NOT NULL)
+       OR (NEW.revision_id IS NOT NULL AND NOT (NEW.revision_id <=> v_latest_revision)) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'A review must evaluate the latest submission of the document.';
+    END IF;
+
+    -- The action is allowed at this level
+    IF NOT (v_action_name = 'Return'
+            OR (v_level_name = 'Level 1' AND v_action_name = 'Forward')
+            OR (v_level_name = 'Level 2' AND v_action_name = 'Endorse')
+            OR (v_level_name = 'Level 3' AND v_action_name = 'Approve')) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'This review action is not allowed at this review level.';
+    END IF;
+END$$
+
+-- ---------------------------------------------------------------------
+-- Rule 7: the document's original submitter cannot perform a REVIEW on
+-- it, whether it reviews the original submission or a revision.
+-- ---------------------------------------------------------------------
+CREATE TRIGGER trg_review_no_self_review
+BEFORE INSERT ON review
+FOR EACH ROW
+BEGIN
+    DECLARE v_document_id  BIGINT UNSIGNED;
+    DECLARE v_submitted_by BIGINT UNSIGNED;
+
+    IF NEW.document_id IS NOT NULL THEN
+        SET v_document_id = NEW.document_id;
+    ELSE
+        SELECT document_id INTO v_document_id
+        FROM revision WHERE revision_id = NEW.revision_id;
+    END IF;
+
+    SELECT submitted_by INTO v_submitted_by
+    FROM document WHERE document_id = v_document_id;
+
+    IF v_submitted_by = NEW.reviewer_id THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'A user cannot review a document they themselves submitted.';
+    END IF;
+END$$
+
+-- Reviews are permanent records: no edits, no deletes.
+CREATE TRIGGER trg_review_no_update
+BEFORE UPDATE ON review
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'Review records cannot be modified.';
+END$$
+
+CREATE TRIGGER trg_review_no_delete
+BEFORE DELETE ON review
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'Review records cannot be deleted.';
+END$$
+
+-- ---------------------------------------------------------------------
+-- Rule 13: the recipient must hold Document Source, Level 1, Level 2
+-- or Level 3 Reviewer.
+-- ---------------------------------------------------------------------
+CREATE TRIGGER trg_notification_recipient_role_check
+BEFORE INSERT ON notification
+FOR EACH ROW
+BEGIN
+    DECLARE v_count INT DEFAULT 0;
+
+    SELECT COUNT(*) INTO v_count
+    FROM user_role ur
+    JOIN role r ON r.role_id = ur.role_id
+    WHERE ur.user_id = NEW.recipient_id
+      AND r.role_name IN ('Document Source', 'Level 1 Reviewer', 'Level 2 Reviewer', 'Level 3 Reviewer');
+
+    IF v_count = 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Notifications can only be received by a Document Source, Level 1, Level 2, or Level 3 Reviewer.';
+    END IF;
+END$$
+
+-- The document and recipient never change; the delivery status may
+-- (for example sent -> failed).
+CREATE TRIGGER trg_notification_locked
+BEFORE UPDATE ON notification
+FOR EACH ROW
+BEGIN
+    IF NOT (NEW.document_id <=> OLD.document_id)
+       OR NEW.recipient_id <> OLD.recipient_id THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'The document and recipient of a notification cannot be changed.';
+    END IF;
+END$$
+
+-- ---------------------------------------------------------------------
+-- Audit entries are permanent, even to the Super Admin.
+-- ---------------------------------------------------------------------
+CREATE TRIGGER trg_audit_log_no_update
+BEFORE UPDATE ON audit_log
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'Audit log entries cannot be modified.';
+END$$
+
+CREATE TRIGGER trg_audit_log_no_delete
+BEFORE DELETE ON audit_log
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'Audit log entries cannot be deleted.';
+END$$
+
+DELIMITER ;
+
+
+-- =====================================================================
+-- SECTION E: DERIVED STATE
+-- =====================================================================
+
+CREATE VIEW vw_document_current_reviewer AS
+SELECT
+    da.document_id,
+    da.reviewer_id,
+    rl.level_name AS review_level,
+    da.assigned_at
+FROM document_assignment da
+JOIN review_level rl ON rl.review_level_id = da.review_level_id
+WHERE da.released_at IS NULL;
+
+
+-- =====================================================================
+-- SECTION F: SEED DATA
+-- =====================================================================
+
+-- Explicit IDs: user_role.singleton_role_id relies on 4 and 5.
+INSERT INTO role (role_id, role_name) VALUES
+    (1, 'Document Source'),
+    (2, 'Level 1 Reviewer'),
+    (3, 'Level 2 Reviewer'),
+    (4, 'Level 3 Reviewer'),
+    (5, 'Super Admin');
+
+INSERT INTO review_level (level_name) VALUES
+    ('Level 1'), ('Level 2'), ('Level 3');
+
+INSERT INTO review_action (action_name) VALUES
+    ('Return'), ('Forward'), ('Endorse'), ('Approve');
+
+INSERT INTO document_status (status_name) VALUES
+    ('Pending Level 1 Review'),
+    ('Pending Level 2 Review'),
+    ('Pending Level 3 Review'),
+    ('Returned to Source'),
+    ('Approved - Complete');
+
+INSERT INTO notification_channel (channel_name) VALUES
+    ('in_system'), ('email');
+
+INSERT INTO notification_delivery_status (delivery_status_name) VALUES
+    ('sent'), ('failed');
