@@ -23,7 +23,6 @@ System(docuflow, "DocuFlow", "A Secure Document Tracker with Multi-Level Review 
 
 System_Ext(aiAssistant, "AI Assistant", "Locally hosted language model (Ollama) that provides preliminary review feedback and detects duplicate submissions.")
 
-System_Ext(emailSystem, "Email", "Sends in-system and email notifications for submission, review, resubmission, and overdue events.")
 
 
 Lay_R(docSource, l1Reviewer)
@@ -33,8 +32,6 @@ Lay_R(l3Reviewer, superAdmin)
 
 Lay_D(l2Reviewer, docuflow)
 Lay_D(docuflow, aiAssistant)
-Lay_D(docuflow, emailSystem)
-
 
 Rel(docSource, docuflow, "Manage Documents\nSubmit/Resubmit Document\n[Receives in-system/email notifications]")
 
