@@ -1,0 +1,56 @@
+@startuml System_Context_Diagram
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_TOP_DOWN()
+
+title System Context Diagram - DocuFlow: A Secure Document Tracker with Multi-Level Review System for DOST-STII
+
+
+Enterprise_Boundary(dost, "DOST-STII") {
+
+    Person(docSource, "Document Source", "DOST-STII staff member who submits documents, tracks their status, and resubmits returned documents.")
+
+    Person(l1Reviewer, "Immediate Supervisor (L1)", "Reviews documents at Level 1 (returns or forwards them) and can also submit documents.")
+
+    Person(l2Reviewer, "Section Head (L2)", "Reviews documents at Level 2 (returns or endorses them) and can also submit documents.")
+
+    Person(l3Reviewer, "Division Chief (L3)", "Gives the final review (returns or approves documents) and monitors the system-wide summary.")
+
+    Person(superAdmin, "Super Admin", "Manages user accounts and roles, the holiday calendar, and AI knowledge and settings, and checks the audit trail.")
+
+    System(docuflow, "DocuFlow", "Web-based system where DOST-STII staff submit documents and track them through a three-level review (L1, L2, L3), with TAT monitoring, in-system and email notifications, and an audit trail.")
+}
+
+
+System_Ext(googleWorkspace, "Google Workspace", "Handles Sign in with Google, checks the sharing of Google Workspace document links, and delivers email notifications through Gmail.")
+
+System_Ext(aiAssistant, "AI Assistant", "Cloud AI model accessed through an API that gives preliminary feedback and suggestions for each review level.")
+
+
+Lay_R(docSource, l1Reviewer)
+Lay_R(l1Reviewer, l2Reviewer)
+Lay_R(l2Reviewer, l3Reviewer)
+Lay_R(l3Reviewer, superAdmin)
+
+Lay_D(l2Reviewer, docuflow)
+Lay_D(docuflow, googleWorkspace)
+Lay_R(googleWorkspace, aiAssistant)
+
+
+Rel(docSource, docuflow, "Manage Account Access\nManage Documents\n(Submit/Resubmit Document)\n[Receives in-system & email notifications]")
+
+Rel(l1Reviewer, docuflow, "Manage Account Access\nManage Documents\n(Submit/Resubmit, Review, Forward/Endorse,\nReturn Document with Remarks)\n[Receives in-system & email notifications]")
+
+Rel(l2Reviewer, docuflow, "Manage Account Access\nManage Documents\n(Submit/Resubmit, Review, Forward/Endorse,\nReturn Document with Remarks)\n[Receives in-system & email notifications]")
+
+Rel(l3Reviewer, docuflow, "Manage Account Access\nManage Documents\n(Review, Approve,\nReturn Document with Remarks)\n[Receives in-system & email notifications]")
+
+Rel(superAdmin, docuflow, "Manage Account Access\nManage System Administration\n(user accounts and roles, holiday calendar,\nAI knowledge and settings, audit trail)\n[Receives in-system & email notifications]")
+
+
+Rel(docuflow, googleWorkspace, "Log In (Sign in with Google)\nSubmit/Resubmit Document, Review Document\nSend In-System & Email Notification\n(email through Gmail)")
+
+Rel(docuflow, aiAssistant, "Provide AI Feedback & Suggestions\nUpdate AI Configuration")
+
+@enduml
