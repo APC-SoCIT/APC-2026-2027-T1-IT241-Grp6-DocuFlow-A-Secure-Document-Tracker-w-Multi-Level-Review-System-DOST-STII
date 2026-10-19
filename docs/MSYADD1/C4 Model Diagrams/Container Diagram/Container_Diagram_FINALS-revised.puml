@@ -1,0 +1,76 @@
+@startuml Container_Diagram
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_TOP_DOWN()
+
+title Container Diagram - DocuFlow: A Secure Document Tracker with Multi-Level Review System for DOST-STII
+
+
+Enterprise_Boundary(dost, "DOST-STII") {
+
+    Person(docSource, "Document Source", "DOST-STII staff member who submits documents, tracks their status, and resubmits returned documents.")
+
+    Person(l1Reviewer, "Immediate Supervisor (L1)", "Reviews documents at Level 1 (returns or forwards them) and can also submit documents.")
+
+    Person(l2Reviewer, "Section Head (L2)", "Reviews documents at Level 2 (returns or endorses them) and can also submit documents.")
+
+    Person(l3Reviewer, "Division Chief (L3)", "Gives the final review (returns or approves documents) and monitors the system-wide summary.")
+
+    Person(superAdmin, "Super Admin", "Manages user accounts and roles, the holiday calendar, and AI knowledge and settings, and checks the audit trail.")
+
+    System_Boundary(docuflowBoundary, "DocuFlow") {
+
+        Container(frontend, "Web Application", "React", "Runs in the browser. Shows only the sections each role can use: My Documents, Review Queue, All Documents, Submit Document, the review screen, the profile, and in-system notifications. For the Super Admin: Audit Trail, User Accounts, Holiday Calendar, and AI Settings.")
+
+        Container(backend, "Backend Application", "Laravel / PHP (Apache)", "Handles Sign in with Google and role-based access, submissions and resubmissions, reference numbers, duplicate checks by hashing, review routing (L1, L2, L3), TAT in working days, PDF reports and audit exports, notifications, and audit logging. Also runs a daily scheduled check for overdue reviews.")
+
+        ContainerDb(database, "DocuFlow Database", "MySQL", "Stores user accounts and roles, documents, Google Workspace links, revisions, review records and remarks, the activity log and audit trail, in-system notifications, the holiday calendar, document hashes, AI knowledge, AI configuration, and the details and locations of uploaded files.")
+
+        ContainerDb(fileStorage, "Uploaded File Storage", "Private Laravel file storage", "Keeps uploaded PDF, DOCX, and XLSX files (up to 10MB each) exactly as submitted. Files are opened only through the backend after an access check.")
+    }
+}
+
+
+System_Ext(googleWorkspace, "Google Workspace", "Handles Sign in with Google, checks the sharing of Google Workspace document links, and delivers email notifications through Gmail.")
+
+System_Ext(aiAssistant, "AI Assistant", "Cloud AI model accessed through an API that gives preliminary feedback and suggestions for each review level.")
+
+
+Lay_R(docSource, l1Reviewer)
+Lay_R(l1Reviewer, l2Reviewer)
+Lay_R(l2Reviewer, l3Reviewer)
+Lay_R(l3Reviewer, superAdmin)
+
+Lay_D(l2Reviewer, frontend)
+Lay_D(frontend, backend)
+Lay_R(backend, database)
+Lay_D(database, fileStorage)
+
+Lay_D(backend, googleWorkspace)
+Lay_R(googleWorkspace, aiAssistant)
+
+
+Rel(docSource, frontend, "Manage Account Access\nManage Documents\n(Submit/Resubmit Document)\n[Views in-system notifications]", "HTTPS")
+
+Rel(l1Reviewer, frontend, "Manage Account Access\nManage Documents\n(Submit/Resubmit, Review, Forward/Endorse,\nReturn Document with Remarks)\n[Views in-system notifications]", "HTTPS")
+
+Rel(l2Reviewer, frontend, "Manage Account Access\nManage Documents\n(Submit/Resubmit, Review, Forward/Endorse,\nReturn Document with Remarks)\n[Views in-system notifications]", "HTTPS")
+
+Rel(l3Reviewer, frontend, "Manage Account Access\nManage Documents\n(Review, Approve,\nReturn Document with Remarks)\n[Views in-system notifications]", "HTTPS")
+
+Rel(superAdmin, frontend, "Manage Account Access\nManage System Administration\n(user accounts and roles, holiday calendar,\nAI knowledge and settings, audit trail)\n[Views in-system notifications]", "HTTPS")
+
+
+Rel_D(frontend, backend, "Sends requests and\nreceives system data", "HTTPS / JSON")
+
+Rel_R(backend, database, "Reads and writes\nsystem records", "SQL")
+
+Rel_D(backend, fileStorage, "Saves and retrieves\nuploaded files", "Laravel Filesystem")
+
+
+Rel_D(backend, googleWorkspace, "Handles Sign in with Google\nChecks link sharing and reads linked documents\nSends email notifications through Gmail", "OAuth 2.0 / Google APIs")
+
+Rel_D(backend, aiAssistant, "Sends documents with matching AI knowledge\nand receives feedback per review level", "HTTPS / REST API")
+
+@enduml
